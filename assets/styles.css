@@ -1,0 +1,388 @@
+:root {
+  --color-canvas: #f4f4f4;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #fafafa;
+  --color-surface-strong: #e8e8e8;
+  --color-text-primary: #161616;
+  --color-text-secondary: #525252;
+  --color-text-placeholder: #6f6f6f;
+  --color-text-disabled: #8d8d8d;
+  --color-border-subtle: #c6c6c6;
+  --color-border-strong: #8d8d8d;
+  --color-interactive: #0f62fe;
+  --color-interactive-hover: #0043ce;
+  --color-interactive-active: #002d9c;
+  --color-on-interactive: #ffffff;
+  --color-focus: #0f62fe;
+  --color-error: #b42318;
+  --color-error-surface: #fff1f0;
+  --color-success: #166534;
+  --color-success-surface: #eef8f0;
+  --color-warning: #7a4c00;
+  --color-warning-surface: #fff7e6;
+  --font-ui: "Source Sans 3", "Noto Sans", system-ui, sans-serif;
+  --font-data: "Source Sans 3", "Noto Sans", system-ui, sans-serif;
+  --font-mono: "Cascadia Mono", "Liberation Mono", ui-monospace, monospace;
+  --font-weight-regular: 400;
+  --font-weight-semibold: 600;
+  --text-caption: 0.75rem;
+  --text-small: 0.875rem;
+  --text-body: 1rem;
+  --text-lead: 1.125rem;
+  --text-heading-3: 1.25rem;
+  --text-heading-2: 1.5rem;
+  --text-heading-1: 2rem;
+  --text-heading-1-compact: 1.75rem;
+  --line-caption: 1rem;
+  --line-small: 1.25rem;
+  --line-body: 1.5rem;
+  --line-lead: 1.625rem;
+  --line-heading-3: 1.75rem;
+  --line-heading-2: 2rem;
+  --line-heading-1: 2.5rem;
+  --space-0: 0;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+  --radius-none: 0;
+  --radius-control: 0.125rem;
+  --border-width: 1px;
+  --border-width-emphasis: 2px;
+  --focus-width: 2px;
+  --focus-offset: 2px;
+  --control-min-block: 2.75rem;
+  --shadow-none: none;
+  --motion-none: 0ms;
+  --content-max: 70rem;
+  --gutter-compact: 1rem;
+  --gutter-standard: 1.5rem;
+  --gutter-wide: 2rem;
+  --grid-columns: 12;
+  --config-column-span: 4;
+  --results-column-span: 8;
+  --table-cell-block: 0.5rem;
+  --table-cell-inline: 0.75rem;
+  --table-rule: 1px solid var(--color-border-subtle);
+  --chart-height-compact: 18rem;
+  --chart-height-standard: 20rem;
+  --chart-height-wide: 22rem;
+}
+
+html,
+body,
+.stApp {
+  background: var(--color-canvas);
+  color: var(--color-text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--text-body);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-body);
+}
+
+.stApp [data-testid="stMainBlockContainer"] {
+  max-inline-size: var(--content-max);
+  padding-block: var(--space-6) var(--space-8);
+  padding-inline: var(--gutter-compact);
+}
+
+.st-key-calculator-layout .st-key-header-region h1 {
+  font-size: var(--text-heading-1-compact);
+  font-weight: var(--font-weight-semibold);
+  line-height: 2.25rem;
+}
+
+h2 {
+  font-size: var(--text-heading-2);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-heading-2);
+  margin-block-start: var(--space-7);
+}
+
+h3 {
+  font-size: var(--text-heading-3);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-heading-3);
+}
+
+code,
+textarea {
+  font-family: var(--font-mono);
+}
+
+input,
+textarea,
+button,
+[data-testid="stMetricValue"],
+[data-testid="stTable"] {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+input,
+textarea,
+button {
+  border-radius: var(--radius-control) !important;
+}
+
+button {
+  min-block-size: var(--control-min-block);
+}
+
+:focus-visible {
+  outline: var(--focus-width) solid var(--color-focus) !important;
+  outline-offset: var(--focus-offset);
+}
+
+[data-testid="stMetric"] {
+  background: var(--color-surface-subtle);
+  border-block-start: var(--border-width-emphasis) solid var(--color-border-strong);
+  border-radius: var(--radius-none);
+  box-shadow: var(--shadow-none);
+  padding: var(--space-4);
+}
+
+[data-testid="stNotification"],
+[data-testid="stTable"] {
+  border-radius: var(--radius-none);
+  box-shadow: var(--shadow-none);
+}
+
+[data-testid="stTable"] {
+  background: var(--color-surface);
+  border: var(--table-rule);
+}
+
+.st-key-calculator-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  column-gap: var(--space-6);
+}
+
+.st-key-configuration-region
+  [class*="st-key-probability-row-"]
+  [data-testid="stHorizontalBlock"] {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.st-key-configuration-region
+  [class*="st-key-probability-row-"]
+  [data-testid="stHorizontalBlock"]
+  > [data-testid="stColumn"] {
+  flex: none !important;
+  inline-size: 100% !important;
+  min-inline-size: 0 !important;
+}
+
+.st-key-configuration-region
+  [class*="st-key-probability-row-"]
+  [data-testid="stNumberInput"] {
+  inline-size: 100%;
+}
+
+.st-key-results-region .st-key-summary-metrics [data-testid="stHorizontalBlock"],
+.st-key-results-region
+  .st-key-actual-target-metrics
+  [data-testid="stHorizontalBlock"],
+.st-key-results-region .st-key-download-actions [data-testid="stHorizontalBlock"] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+}
+
+.st-key-results-region
+  .st-key-summary-metrics
+  [data-testid="stHorizontalBlock"]
+  > [data-testid="stColumn"],
+.st-key-results-region
+  .st-key-actual-target-metrics
+  [data-testid="stHorizontalBlock"]
+  > [data-testid="stColumn"],
+.st-key-results-region
+  .st-key-download-actions
+  [data-testid="stHorizontalBlock"]
+  > [data-testid="stColumn"] {
+  flex: none !important;
+  inline-size: 100% !important;
+  min-inline-size: 0 !important;
+}
+
+.st-key-results-region [data-testid="stMetricValue"],
+.st-key-results-region [data-testid="stMetricValue"] > div {
+  font-size: var(--text-heading-3);
+  line-height: var(--line-heading-3);
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.st-key-results-region [data-testid="stMetricLabel"],
+.st-key-results-region [data-testid="stMetricLabel"] > div,
+.st-key-results-region [data-testid="stMetricLabel"] p {
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.st-key-results-region [data-testid="stCaptionContainer"],
+.st-key-results-region [data-testid="stCaptionContainer"] p {
+  color: var(--color-text-secondary);
+  font-size: var(--text-small);
+  line-height: var(--line-small);
+}
+
+.st-key-results-region .prefix-table-overflow {
+  background: var(--color-surface);
+  border: var(--table-rule);
+  max-inline-size: 100%;
+  overflow-x: scroll;
+  overflow-y: hidden;
+  scrollbar-color: var(--color-border-strong) var(--color-surface-strong);
+  scrollbar-gutter: stable;
+  scrollbar-width: auto;
+}
+
+.st-key-results-region .prefix-table-overflow::-webkit-scrollbar {
+  block-size: var(--space-3);
+}
+
+.st-key-results-region .prefix-table-overflow::-webkit-scrollbar-track {
+  background: var(--color-surface-strong);
+}
+
+.st-key-results-region .prefix-table-overflow::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border: var(--space-1) solid var(--color-surface-strong);
+}
+
+.st-key-results-region .prefix-table-overflow:focus-visible {
+  outline: var(--focus-width) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+}
+
+.st-key-results-region .prefix-table-scroll-instruction {
+  color: var(--color-text-secondary);
+  font-size: var(--text-small);
+  line-height: var(--line-small);
+  margin: var(--space-2) var(--table-cell-inline);
+}
+
+.st-key-results-region .prefix-results-table {
+  background: var(--color-surface);
+  border-collapse: collapse;
+  font-family: var(--font-data);
+  font-size: var(--text-small);
+  font-variant-numeric: tabular-nums lining-nums;
+  inline-size: max-content;
+  line-height: var(--line-small);
+  min-inline-size: 100%;
+}
+
+.st-key-results-region .prefix-results-table th,
+.st-key-results-region .prefix-results-table td {
+  border-block-end: var(--table-rule);
+  padding: var(--table-cell-block) var(--table-cell-inline);
+  text-align: start;
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.st-key-results-region .prefix-results-table th {
+  background: var(--color-surface-subtle);
+  font-weight: var(--font-weight-semibold);
+}
+
+.st-key-entropy-chart [data-testid="stPlotlyChart"] {
+  block-size: var(--chart-height-compact);
+}
+
+@media (min-width: 48rem) {
+  .stApp [data-testid="stMainBlockContainer"] {
+    padding-inline: var(--gutter-standard);
+  }
+
+  .st-key-calculator-layout .st-key-header-region h1 {
+    font-size: var(--text-heading-1);
+    line-height: var(--line-heading-1);
+  }
+
+  .st-key-entropy-chart [data-testid="stPlotlyChart"] {
+    block-size: var(--chart-height-standard);
+  }
+
+  .st-key-results-region
+    .st-key-summary-metrics
+    [data-testid="stHorizontalBlock"],
+  .st-key-results-region
+    .st-key-actual-target-metrics
+    [data-testid="stHorizontalBlock"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .st-key-results-region
+    .st-key-download-actions
+    [data-testid="stHorizontalBlock"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 80rem) {
+  .stApp [data-testid="stMainBlockContainer"] {
+    padding-inline: var(--gutter-wide);
+  }
+
+  .st-key-calculator-layout {
+    grid-template-columns: repeat(var(--grid-columns), minmax(0, 1fr));
+  }
+
+  .st-key-calculator-layout
+    > [data-testid="stLayoutWrapper"]:has(> .st-key-header-region),
+  .st-key-calculator-layout
+    > [data-testid="stLayoutWrapper"]:has(> .st-key-interpretation-region) {
+    grid-column: 1 / -1;
+  }
+
+  .st-key-calculator-layout
+    > [data-testid="stLayoutWrapper"]:has(> .st-key-configuration-region) {
+    grid-column: span var(--config-column-span);
+  }
+
+  .st-key-calculator-layout
+    > [data-testid="stLayoutWrapper"]:has(> .st-key-results-region) {
+    grid-column: span var(--results-column-span);
+  }
+
+  .st-key-configuration-region
+    [class*="st-key-probability-row-"]
+    [data-testid="stHorizontalBlock"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .st-key-entropy-chart [data-testid="stPlotlyChart"] {
+    block-size: var(--chart-height-wide);
+  }
+
+  .st-key-results-region
+    .st-key-summary-metrics
+    [data-testid="stHorizontalBlock"],
+  .st-key-results-region
+    .st-key-actual-target-metrics
+    [data-testid="stHorizontalBlock"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.stApp *,
+.stApp *::before,
+.stApp *::after {
+  animation: none !important;
+  transition: none !important;
+}
