@@ -1,0 +1,100 @@
+{
+  "preset_name": "hand-calculated model",
+  "state_labels": ["State 1", "State 2"],
+  "observable_labels": ["A", "B"],
+  "initial": [0.6, 0.4],
+  "transition": [[0.7, 0.3], [0.2, 0.8]],
+  "emission": [[0.9, 0.1], [0.2, 0.8]],
+  "sequence": [0, 1, 1, 0, 0, 0, 1],
+  "observed_entropy_bits": 0.985228136034251,
+  "rows": [
+    {
+      "depth": 0,
+      "context": "(empty prefix)",
+      "observed_index": null,
+      "posterior": null,
+      "next_hidden": [0.6, 0.4],
+      "predictive": [0.62, 0.38],
+      "entropy_bits": 0.9580420222262995,
+      "predicted_index": 0,
+      "surprisal_bits": [0.6896598793878495, 1.395928676331139]
+    },
+    {
+      "depth": 1,
+      "context": "A",
+      "observed_index": 0,
+      "posterior": [0.8709677419354838, 0.12903225806451613],
+      "next_hidden": [0.6354838709677418, 0.36451612903225805],
+      "predictive": [0.6448387096774193, 0.35516129032258065],
+      "entropy_bits": 0.9385932490626061,
+      "predicted_index": 0,
+      "surprisal_bits": [0.6329897434169725, 1.4934537465972308]
+    },
+    {
+      "depth": 2,
+      "context": "A, B",
+      "observed_index": 1,
+      "posterior": [0.17892824704813803, 0.821071752951862],
+      "next_hidden": [0.28946412352406903, 0.710535876475931],
+      "predictive": [0.4026248864668483, 0.5973751135331518],
+      "entropy_bits": 0.9724653608184779,
+      "predicted_index": 1,
+      "surprisal_bits": [1.3124917460938963, 0.7432909582265448]
+    },
+    {
+      "depth": 3,
+      "context": "A, B, B",
+      "observed_index": 1,
+      "posterior": [0.0484560064466102, 0.9515439935533898],
+      "next_hidden": [0.2242280032233051, 0.775771996776695],
+      "predictive": [0.35695960225631357, 0.6430403977436865],
+      "entropy_bits": 0.9401304535743449,
+      "predicted_index": 1,
+      "surprisal_bits": [1.4861672837205837, 0.6370187200188563]
+    },
+    {
+      "depth": 4,
+      "context": "A, B, B, A",
+      "observed_index": 0,
+      "posterior": [0.5653446542000264, 0.4346553457999735],
+      "next_hidden": [0.48267232710001323, 0.5173276728999868],
+      "predictive": [0.5378706289700093, 0.4621293710299908],
+      "entropy_bits": 0.9958578524387662,
+      "predicted_index": 0,
+      "surprisal_bits": [0.8946688837926327, 1.113631310743779]
+    },
+    {
+      "depth": 5,
+      "context": "A, B, B, A, A",
+      "observed_index": 0,
+      "posterior": [0.8076386234769357, 0.1923613765230643],
+      "next_hidden": [0.6038193117384678, 0.39618068826153213],
+      "predictive": [0.6226735182169275, 0.3773264817830725],
+      "entropy_bits": 0.9561318952806837,
+      "predicted_index": 0,
+      "surprisal_bits": [0.6834521709789335, 1.4061147389842066]
+    },
+    {
+      "depth": 6,
+      "context": "A, B, B, A, A, A",
+      "observed_index": 0,
+      "posterior": [0.8727485024909923, 0.12725149750900772],
+      "next_hidden": [0.6363742512454962, 0.3636257487545039],
+      "predictive": [0.6454619758718474, 0.3545380241281527],
+      "entropy_bits": 0.9380557270849561,
+      "predicted_index": 0,
+      "surprisal_bits": [0.6315959859341467, 1.4959877303864575]
+    },
+    {
+      "depth": 7,
+      "context": "A, B, B, A, A, A, B",
+      "observed_index": 1,
+      "posterior": [0.1794939351880265, 0.8205060648119735],
+      "next_hidden": [0.28974696759401325, 0.7102530324059868],
+      "predictive": [0.4028228773158093, 0.5971771226841908],
+      "entropy_bits": 0.9725779398045424,
+      "predicted_index": 1,
+      "surprisal_bits": [1.3117824749666187, 0.7437691966993261]
+    }
+  ]
+}
