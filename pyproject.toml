@@ -1,0 +1,89 @@
+[project]
+name = "binary-context-entropy-calculator"
+version = "0.1.0"
+description = "Typed mathematical core for binary predictive entropy analysis"
+requires-python = ">=3.13"
+dependencies = [
+    "numpy>=2.1",
+    "pandas>=2.2",
+    "plotly>=6.9.0",
+    "pydantic>=2.10",
+    "streamlit>=1.61.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "basedpyright>=1.31",
+    "pandas-stubs>=2.2",
+    "plotly-stubs>=0.1.3",
+    "pytest>=8.3",
+    "pytest-cov>=6.0",
+    "ruff>=0.12",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/binary_entropy"]
+
+[tool.basedpyright]
+typeCheckingMode = "all"
+pythonVersion = "3.13"
+pythonPlatform = "All"
+include = ["src", "tests", "streamlit_app.py"]
+exclude = ["**/__pycache__", "**/.venv", "**/build", "**/dist"]
+reportUnnecessaryTypeIgnoreComment = "error"
+reportUnusedVariable = "error"
+reportMissingParameterType = "error"
+reportPrivateUsage = "error"
+
+[tool.ruff]
+target-version = "py313"
+line-length = 88
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "COM812", # Conflicts with Ruff's formatter.
+    "CPY001", # This project does not require per-file copyright notices.
+    "D203",   # D211 is the selected blank-line convention.
+    "D213",   # D212 is the selected summary-line convention.
+    "ISC001", # Conflicts with Ruff's formatter.
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "D",       # Test names document behavior.
+    "PLR2004", # Literal values are hand-calculated test fixtures.
+    "S101",    # pytest assertions are required.
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+docstring-code-format = true
+docstring-code-line-length = "dynamic"
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = ["-ra", "--strict-config", "--strict-markers"]
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+source = ["binary_entropy"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 95
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]
