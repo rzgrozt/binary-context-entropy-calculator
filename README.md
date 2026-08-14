@@ -234,3 +234,22 @@ actual-target assessment.
 - Results are conditional model calculations and make no causal or
   statistical-validity claim beyond that calculation.
 - Numerical calculations use float64 arithmetic.
+
+## Citation
+
+> [!NOTE]
+> If you use this software in research, please cite:
+>
+> Ozturk, R. (2026). *Binary Sequence Predictive Entropy Calculator*
+> (Version 0.1.0) [Computer software]. GitHub.
+> https://github.com/rzgrozt/binary-context-entropy-calculator
+
+```bibtex
+@software{ozturk2026binaryentropy,
+  author  = {Ozturk, Ruzgar},
+  title   = {Binary Sequence Predictive Entropy Calculator},
+  year    = {2026},
+  version = {0.1.0},
+  url     = {https://github.com/rzgrozt/binary-context-entropy-calculator}
+}
+```
