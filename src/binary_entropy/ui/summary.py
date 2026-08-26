@@ -1,14 +1,37 @@
-"""Scientific summary rendering for one current calculation."""
+"""HMM summaries, prefix evidence, and compatibility exports."""
 
 from dataclasses import dataclass
 
 import streamlit as st
 
-from binary_entropy.domain import TargetClassification
-from binary_entropy.presentation import format_decimal
-from binary_entropy.ui.results import final_metrics, format_information
-from binary_entropy.ui.state import CalculationSuccess
+from binary_entropy.domain import (
+    BinaryHMM,
+    SequenceAnalysis,
+    TargetAssessment,
+    TargetClassification,
+)
+from binary_entropy.methods.hmm import HMMBatchAnalysis, HMMRecordAnalysis
+from binary_entropy.serialization import (
+    CandidateMetadata,
+    candidate_summary_csv,
+    prefix_csv,
+)
+from binary_entropy.ui.chart import entropy_figure
+from binary_entropy.ui.results import (
+    final_metrics,
+    format_information,
+    prefix_dataframe,
+)
+from binary_entropy.ui.state import (
+    CalculationSuccess,
+    CalculatorForm,
+    PresetExportFailure,
+    PresetExportSuccess,
+    export_preset,
+)
 from binary_entropy.ui.text import joined_text
+from binary_entropy.ui.tokens import UI_NUMBER_FORMAT, format_ui_decimal
+from binary_entropy.ui.workbench_state import WorkbenchForm
 
 
 @dataclass(frozen=True, slots=True)
@@ -20,121 +43,225 @@ class MetricDisplay:
     help_text: str
 
 
+@dataclass(frozen=True, slots=True)
+class HMMViewContext:
+    """Submitted HMM model, metadata, and download-label scope."""
+
+    form: WorkbenchForm
+    model: BinaryHMM
+    single_record: bool
+
+
+def render_hmm_result(analysis: HMMBatchAnalysis, form: WorkbenchForm) -> None:
+    """Render every independent HMM result under the submitted fixed model."""
+    context = HMMViewContext(
+        form=form,
+        model=form.hmm_model.to_model(),
+        single_record=len(analysis.records) == 1,
+    )
+    _ = st.subheader("Hidden Markov Model")
+    _ = st.caption(
+        joined_text(
+            (
+                "Each sequence is filtered independently under the submitted fixed ",
+                "HMM; no pooled fit is performed.",
+            )
+        )
+    )
+    for record in analysis.records:
+        if context.single_record:
+            _render_record(record, context)
+        else:
+            with st.expander(f"HMM sequence: {record.sequence_id}", expanded=True):
+                _render_record(record, context)
+    _render_preset_download(context)
+
+
 def render_summary(success: CalculationSuccess) -> None:
-    """Render final predictive, hidden-state, and descriptive metrics."""
-    analysis = success.analysis
-    model = success.model
+    """Preserve the legacy single-analysis summary adapter."""
+    _render_metrics(
+        success.analysis,
+        success.model,
+        success.target_assessment,
+    )
+
+
+def _render_record(record: HMMRecordAnalysis, context: HMMViewContext) -> None:
+    _ = st.markdown(f"**Sequence ID:** `{record.sequence_id}`")
+    _render_metrics(record.analysis, context.model, record.target_assessment)
+    _ = st.markdown("Every-prefix HMM values in deterministic depth order.")
+    labels = context.model.labels.observables
+    states = context.model.labels.states
+    _ = st.dataframe(
+        prefix_dataframe(record.analysis, context.model),
+        hide_index=True,
+        width="stretch",
+        height="content",
+        column_config={
+            f"P(next {labels[0]})": st.column_config.NumberColumn(
+                format=UI_NUMBER_FORMAT
+            ),
+            f"P(next {labels[1]})": st.column_config.NumberColumn(
+                format=UI_NUMBER_FORMAT
+            ),
+            "Predictive entropy (bits)": st.column_config.NumberColumn(
+                format=UI_NUMBER_FORMAT
+            ),
+            f"Surprisal if next {labels[0]} (bits)": st.column_config.NumberColumn(
+                format=UI_NUMBER_FORMAT
+            ),
+            f"Surprisal if next {labels[1]} (bits)": st.column_config.NumberColumn(
+                format=UI_NUMBER_FORMAT
+            ),
+            f"Posterior {states[0]}": st.column_config.NumberColumn(
+                format=UI_NUMBER_FORMAT
+            ),
+            f"Posterior {states[1]}": st.column_config.NumberColumn(
+                format=UI_NUMBER_FORMAT
+            ),
+            f"Next-hidden {states[0]}": st.column_config.NumberColumn(
+                format=UI_NUMBER_FORMAT
+            ),
+            f"Next-hidden {states[1]}": st.column_config.NumberColumn(
+                format=UI_NUMBER_FORMAT
+            ),
+        },
+    )
+    _ = st.markdown(
+        "HMM predictive entropy by context depth, from 0.000 to 1.000 bits."
+    )
+    _ = st.write(entropy_figure(record.analysis))
+    _render_record_downloads(record, context)
+
+
+def _render_metrics(
+    analysis: SequenceAnalysis,
+    model: BinaryHMM,
+    target_assessment: TargetAssessment | None,
+) -> None:
     values = final_metrics(analysis, model)
     observable_0, observable_1 = model.labels.observables
     state_0, state_1 = model.labels.states
     metrics = (
+        MetricDisplay("Context depth", str(values.depth), "Observations consumed."),
+        MetricDisplay("Observed context", values.context, "Complete entered prefix."),
         MetricDisplay(
-            "Context depth", str(values.depth), "Number of observations consumed."
+            f"P(next {observable_0})", values.probability_0, "HMM prediction."
         ),
         MetricDisplay(
-            "Observed context", values.context, "The complete entered prefix."
+            f"P(next {observable_1})", values.probability_1, "HMM prediction."
         ),
         MetricDisplay(
-            f"P(next {observable_0})",
-            values.probability_0,
-            "HMM predictive probability after the observed context.",
-        ),
-        MetricDisplay(
-            f"P(next {observable_1})",
-            values.probability_1,
-            "HMM predictive probability after the observed context.",
-        ),
-        MetricDisplay(
-            "Predicted target",
-            values.predicted_target,
-            "A tie resolves to variable 1.",
+            "Predicted target", values.predicted_target, "Ties choose observable A."
         ),
         MetricDisplay(
             "HMM predictive entropy (bits)",
             values.entropy_bits,
-            "Binary uncertainty in the final predictive distribution.",
+            "Next-symbol uncertainty.",
         ),
         MetricDisplay(
-            f"Surprisal if next {observable_0} (bits)",
+            f"Candidate surprisal {observable_0} (bits)",
             values.surprisal_0,
-            "Self-information under the final prediction.",
+            "Self-information.",
         ),
         MetricDisplay(
-            f"Surprisal if next {observable_1} (bits)",
+            f"Candidate surprisal {observable_1} (bits)",
             values.surprisal_1,
-            "Self-information under the final prediction.",
+            "Self-information.",
         ),
         MetricDisplay(f"Posterior {state_0}", values.posterior_0, values.posterior),
         MetricDisplay(f"Posterior {state_1}", values.posterior_1, values.posterior),
         MetricDisplay(
-            f"Next-hidden {state_0}",
-            values.next_hidden_0,
-            "Hidden-state distribution used for the next observation.",
+            f"Next-hidden {state_0}", values.next_hidden_0, "Next hidden distribution."
         ),
         MetricDisplay(
-            f"Next-hidden {state_1}",
-            values.next_hidden_1,
-            "Hidden-state distribution used for the next observation.",
+            f"Next-hidden {state_1}", values.next_hidden_1, "Next hidden distribution."
         ),
     )
-    with st.container(key="summary-metrics"):
-        columns = st.columns(len(metrics))
-        for column, metric in zip(columns, metrics, strict=True):
-            _ = column.metric(
-                label=metric.label,
-                value=metric.value,
-                help=metric.help_text,
-            )
+    columns = st.columns(3)
+    for index, metric in enumerate(metrics):
+        _ = columns[index % 3].metric(
+            label=metric.label,
+            value=metric.value,
+            help=metric.help_text,
+        )
     if values.depth == 0:
         _ = st.info(
-            joined_text(
-                (
-                    "At depth 0, the hidden posterior is unavailable before any ",
-                    "observation. Under this convention, next-hidden equals pi.",
-                )
-            )
+            "At depth 0, the hidden posterior is unavailable; next-hidden equals pi."
         )
-    _render_observed_entropy(success)
-    _render_actual_target(success)
+    if target_assessment is not None:
+        _render_target(target_assessment, model)
 
 
-def _render_observed_entropy(success: CalculationSuccess) -> None:
-    _ = st.subheader("Observed-symbol Shannon entropy")
-    _ = st.markdown("This is descriptive and not HMM next-target predictive entropy.")
-    observed_entropy = success.analysis.observed_entropy_bits
-    if observed_entropy is None:
-        _ = st.info(
-            "Observed-symbol Shannon entropy is unavailable for an empty sequence."
-        )
-        return
-    _ = st.metric(
-        "Observed-symbol Shannon entropy (bits)",
-        format_decimal(observed_entropy),
-        help="Entropy of the empirical variable frequencies in the entered sequence.",
-    )
-
-
-def _render_actual_target(success: CalculationSuccess) -> None:
-    assessment = success.target_assessment
-    if assessment is None:
-        return
-    target_label = success.model.labels.observables[assessment.actual_target_index]
-    match assessment.classification:  # noqa: RUF100  # noqa: MATCH_OK
+def _render_target(assessment: TargetAssessment, model: BinaryHMM) -> None:
+    target_label = model.labels.observables[assessment.actual_target_index]
+    match assessment.classification:
         case TargetClassification.MODAL:
             wording = "The selected target is modal (highest probability)."
         case TargetClassification.LOWER_PROBABILITY:
             wording = "The selected target has lower probability than the modal target."
         case TargetClassification.TIED:
             wording = "The two target probabilities are tied."
-    _ = st.subheader("Actual next target assessment")
-    with st.container(key="actual-target-metrics"):
-        target_columns = st.columns(3)
-        _ = target_columns[0].metric("Actual next target", target_label)
-        _ = target_columns[1].metric(
-            "Actual-target probability", format_decimal(assessment.probability)
-        )
-        _ = target_columns[2].metric(
-            "Realized surprisal (bits)",
-            format_information(assessment.surprisal_bits),
-        )
+    columns = st.columns(3)
+    _ = columns[0].metric("Actual next target", target_label)
+    _ = columns[1].metric(
+        "Actual-target probability",
+        format_ui_decimal(assessment.probability),
+    )
+    _ = columns[2].metric(
+        "Realized surprisal (bits)",
+        format_information(assessment.surprisal_bits),
+    )
     _ = st.markdown(wording)
+
+
+def _render_record_downloads(
+    record: HMMRecordAnalysis,
+    context: HMMViewContext,
+) -> None:
+    suffix = "" if context.single_record else f" — {record.sequence_id}"
+    metadata = CandidateMetadata(
+        sequence_id=record.sequence_id,
+        preset_name=context.form.preset_name,
+        actual_target_index=(
+            None
+            if record.target_assessment is None
+            else record.target_assessment.actual_target_index
+        ),
+    )
+    columns = st.columns(2)
+    _ = columns[0].download_button(
+        f"Download HMM prefix CSV{suffix}",
+        data=prefix_csv(record.analysis, context.model),
+        file_name=f"hmm-{record.sequence_id}-prefix.csv",
+        mime="text/csv; charset=utf-8",
+        on_click="ignore",
+    )
+    _ = columns[1].download_button(
+        f"Download HMM candidate-summary CSV{suffix}",
+        data=candidate_summary_csv(record.analysis, context.model, metadata),
+        file_name=f"hmm-{record.sequence_id}-candidate-summary.csv",
+        mime="text/csv; charset=utf-8",
+        on_click="ignore",
+    )
+
+
+def _render_preset_download(context: HMMViewContext) -> None:
+    legacy = CalculatorForm(
+        model=context.form.hmm_model,
+        sequence_text=context.form.intake.text,
+        actual_target=context.form.intake.actual_target,
+        sequence_id=context.form.intake.sequence_id,
+        preset_name=context.form.preset_name,
+    )
+    match export_preset(legacy):
+        case PresetExportSuccess(payload=payload):
+            _ = st.download_button(
+                "Download HMM preset JSON",
+                data=payload,
+                file_name="binary-hmm-preset.json",
+                mime="application/json",
+                on_click="ignore",
+            )
+        case PresetExportFailure(message=message):
+            _ = st.error(f"HMM preset unavailable: {message}")

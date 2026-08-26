@@ -1,188 +1,175 @@
-"""Result lifecycle, prefix evidence, chart, and export rendering."""
+"""Submitted-result lifecycle and selected-method rendering."""
+
+from dataclasses import dataclass
 
 import streamlit as st
 
-from binary_entropy.constants import (
-    DISPLAY_DECIMALS,
-    PRESET_SCHEMA_VERSION,
-    PROBABILITY_TOLERANCE,
+from binary_entropy.markov_types import MarkovBatchAnalysis
+from binary_entropy.methods.hmm import HMMBatchAnalysis
+from binary_entropy.methods.shannon import ShannonBatchAnalysis
+from binary_entropy.ui.comparison import render_comparison
+from binary_entropy.ui.markov_view import render_markov_result
+from binary_entropy.ui.session import (
+    WorkbenchCalculationRecord,
+    WorkbenchSubmissionFailure,
 )
-from binary_entropy.domain import BinaryHMM, SequenceAnalysis
-from binary_entropy.serialization import (
-    CandidateMetadata,
-    candidate_summary_csv,
-    prefix_csv,
-)
-from binary_entropy.ui.chart import entropy_figure
-from binary_entropy.ui.results import prefix_dataframe
-from binary_entropy.ui.session import CalculationRecord, SubmissionFailure
-from binary_entropy.ui.state import (
-    CalculatorForm,
-    PresetExportFailure,
-    PresetExportSuccess,
-    actual_target_index,
-    export_preset,
-)
-from binary_entropy.ui.summary import render_summary
+from binary_entropy.ui.shannon_results import render_shannon_result
+from binary_entropy.ui.summary import render_hmm_result
 from binary_entropy.ui.text import joined_text
+from binary_entropy.ui.workbench_state import (
+    MethodCalculationFailure,
+    MethodChoice,
+    WorkbenchCalculationSuccess,
+    WorkbenchForm,
+)
+from binary_entropy.workbench import WorkbenchResult
 
 
-def prefix_table_html(analysis: SequenceAnalysis, model: BinaryHMM) -> str:
-    """Build the keyboard-reachable exact-results table with escaped cells."""
-    table = prefix_dataframe(analysis, model).to_html(
-        index=False,
-        escape=True,
-        border=0,
-        classes="prefix-results-table",
-    )
-    return joined_text(
-        (
-            '<div class="prefix-table-overflow" role="region" tabindex="0" ',
-            'aria-label="Every-prefix exact results" ',
-            'aria-describedby="prefix-table-scroll-instruction">',
-            '<p id="prefix-table-scroll-instruction" ',
-            'class="prefix-table-scroll-instruction">',
-            "Scroll horizontally to inspect every exact-value column.</p>",
-            table,
-            "</div>",
-        )
-    )
+@dataclass(frozen=True, slots=True)
+class CurrentSubmission:
+    """Current method results, failures, and stale selected methods."""
+
+    results: tuple[WorkbenchResult, ...]
+    failures: tuple[MethodCalculationFailure, ...]
+    stale_methods: tuple[MethodChoice, ...]
 
 
 def render_results(
-    form: CalculatorForm,
-    record: CalculationRecord | None,
-    failure: SubmissionFailure | None,
+    form: WorkbenchForm,
+    record: WorkbenchCalculationRecord | None,
+    failure: WorkbenchSubmissionFailure | None,
 ) -> None:
-    """Render exactly one uncalculated, invalid, stale, or current result state."""
+    """Render only results whose shared and method-specific inputs are current."""
     _ = st.header("Results")
-    if record is not None and record.fingerprint != form.fingerprint():
-        _ = st.warning(
-            joined_text(
-                (
-                    "Inputs changed after the last successful calculation. ",
-                    "Recalculation is required; prior outputs and downloads ",
-                    "are hidden.",
-                )
-            )
-        )
-        return
     if failure is not None:
         _ = st.error(failure.message)
-        _render_preset_download(form)
         return
     if record is None:
         _ = st.info(
             joined_text(
                 (
-                    "Results are not calculated. Review the model and sequence, then ",
-                    "select Calculate entropy.",
+                    "Results are not calculated. Review the selected controls and ",
+                    "choose Calculate selected methods.",
                 )
             )
         )
-        _render_preset_download(form)
         return
-    _ = st.success("Calculation complete.")
-    render_summary(record.success)
-    _render_prefix_evidence(record)
-    _render_downloads(form, record)
-    _render_reproducibility(form, record)
-
-
-def _render_prefix_evidence(record: CalculationRecord) -> None:
-    success = record.success
-    _ = st.subheader("Every-prefix results")
-    _ = st.caption(
-        joined_text(
-            (
-                "Depth is the number of observations already consumed and ",
-                "begins at 0. ",
-                "The table is the authoritative exact-value fallback for the chart.",
-                " On narrow screens, scroll horizontally to inspect every column.",
-            )
+    current = _current_submission(form, record.success)
+    if current.stale_methods:
+        names = ", ".join(method.value for method in current.stale_methods)
+        _ = st.warning(
+            f"Recalculation required: {names}. Prior dependent outputs are hidden."
         )
+    if not current.results and not current.failures:
+        return
+    if not current.stale_methods and not current.failures:
+        _ = st.success("Calculation complete.")
+    if current.results:
+        _ = st.caption("Wide comparison and result tables scroll horizontally.")
+        render_comparison(current.results, form.intake.observable_labels)
+    for method in form.methods:
+        result = _result_for_method(current.results, method)
+        method_failure = _failure_for_method(current.failures, method)
+        if result is not None:
+            _render_method_result(result, form, record.success)
+        elif method_failure is not None:
+            _ = st.subheader(method.value)
+            _ = st.error(method_failure.message)
+    _render_reproducibility(form, record.success)
+
+
+def _current_submission(
+    form: WorkbenchForm,
+    success: WorkbenchCalculationSuccess,
+) -> CurrentSubmission:
+    fingerprints = dict(success.fingerprints)
+    stale = tuple(
+        method
+        for method in form.methods
+        if fingerprints.get(method) != form.method_fingerprint(method)
     )
-    _ = st.html(prefix_table_html(success.analysis, success.model))
-    _ = st.subheader("Predictive entropy by context depth")
-    _ = st.markdown(
-        joined_text(
-            (
-                "The line and markers show HMM next-target uncertainty for every ",
-                "prefix. Hover a marker for the canonical 12-decimal value.",
-            )
-        )
+    current_methods = tuple(method for method in form.methods if method not in stale)
+    results = tuple(
+        result
+        for result in success.results
+        if _method_for_result(result) in current_methods
     )
-    with st.container(key="entropy-chart"):
-        _ = st.write(entropy_figure(success.analysis))
-
-
-def _render_downloads(form: CalculatorForm, record: CalculationRecord) -> None:
-    _ = st.subheader("Exports")
-    _render_preset_download(form)
-    success = record.success
-    target_index = actual_target_index(form.actual_target)
-    metadata = CandidateMetadata(
-        sequence_id=form.sequence_id,
-        preset_name=form.preset_name,
-        actual_target_index=target_index,
+    failures = tuple(
+        failure for failure in success.failures if failure.method in current_methods
     )
-    with st.container(key="download-actions"):
-        download_columns = st.columns(2)
-        _ = download_columns[0].download_button(
-            "Download prefix CSV",
-            data=prefix_csv(success.analysis, success.model),
-            file_name="binary-entropy-prefix.csv",
-            mime="text/csv; charset=utf-8",
-            on_click="ignore",
-            type="secondary",
-        )
-        _ = download_columns[1].download_button(
-            "Download candidate-summary CSV",
-            data=candidate_summary_csv(success.analysis, success.model, metadata),
-            file_name="binary-entropy-candidate-summary.csv",
-            mime="text/csv; charset=utf-8",
-            on_click="ignore",
-            type="secondary",
-        )
+    return CurrentSubmission(results, failures, stale)
 
 
-def _render_preset_download(form: CalculatorForm) -> None:
-    match export_preset(form):  # noqa: RUF100  # noqa: MATCH_OK
-        case PresetExportSuccess(payload=payload):
-            _ = st.download_button(
-                "Download model preset JSON",
-                data=payload,
-                file_name="binary-hmm-preset.json",
-                mime="application/json",
-                on_click="ignore",
-                type="secondary",
+def _render_method_result(
+    result: WorkbenchResult,
+    form: WorkbenchForm,
+    success: WorkbenchCalculationSuccess,
+) -> None:
+    match result:
+        case MarkovBatchAnalysis() as markov:
+            render_markov_result(markov)
+        case HMMBatchAnalysis() as hmm:
+            render_hmm_result(hmm, form)
+        case ShannonBatchAnalysis() as shannon:
+            has_targets = any(
+                record.actual_target_index is not None
+                for record in success.dataset.records
             )
-            _ = st.caption("Model parameters only; the sequence is not included.")
-        case PresetExportFailure(message=message):
-            _ = st.caption(f"Model preset JSON unavailable: {message}")
+            render_shannon_result(shannon, has_targets=has_targets)
+
+
+def _method_for_result(result: WorkbenchResult) -> MethodChoice:
+    match result:
+        case MarkovBatchAnalysis():
+            return MethodChoice.MARKOV
+        case HMMBatchAnalysis():
+            return MethodChoice.HMM
+        case ShannonBatchAnalysis():
+            return MethodChoice.SHANNON
+
+
+def _result_for_method(
+    results: tuple[WorkbenchResult, ...],
+    method: MethodChoice,
+) -> WorkbenchResult | None:
+    return next(
+        (result for result in results if _method_for_result(result) is method), None
+    )
+
+
+def _failure_for_method(
+    failures: tuple[MethodCalculationFailure, ...],
+    method: MethodChoice,
+) -> MethodCalculationFailure | None:
+    return next((failure for failure in failures if failure.method is method), None)
 
 
 def _render_reproducibility(
-    form: CalculatorForm,
-    record: CalculationRecord,
+    form: WorkbenchForm,
+    success: WorkbenchCalculationSuccess,
 ) -> None:
+    selected_methods = ", ".join(method.value for method in form.methods)
     with st.expander("Reproducibility details"):
         _ = st.markdown(
-            joined_text(
+            "\n".join(
                 (
-                    "- Display and export precision: ",
-                    f"{DISPLAY_DECIMALS} decimal places\n",
-                    f"- Probability sum tolerance: {PROBABILITY_TOLERANCE:.12f}\n",
-                    f"- Preset schema version: {PRESET_SCHEMA_VERSION}\n",
-                    "- Parsed sequence length: ",
-                    f"{len(record.success.analysis.sequence)}\n",
-                    f"- Preset name: `{form.preset_name}`\n",
-                    f"- Sequence ID: `{form.sequence_id}`",
+                    f"- Selected methods: {selected_methods}",
+                    f"- Parsed records: {len(success.dataset.records)}",
+                    "- Visible scientific precision: 3 decimal places",
+                    joined_text(
+                        (
+                            "- Raw export precision: unrounded float64 or at least ",
+                            "12 decimal places",
+                        )
+                    ),
+                    "- Markov order: 1",
+                    "- Record ordering: deterministic submitted order",
+                    joined_text(
+                        (
+                            "- Evaluation targets score existing predictions and ",
+                            "never affect fitting",
+                        )
+                    ),
                 )
             )
         )
-        match export_preset(form):  # noqa: RUF100  # noqa: MATCH_OK
-            case PresetExportSuccess(payload=payload):
-                _ = st.code(payload.decode("utf-8"), language="json")
-            case PresetExportFailure(message=message):
-                _ = st.error(message)
