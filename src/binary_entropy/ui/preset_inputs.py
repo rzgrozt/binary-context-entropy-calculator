@@ -4,7 +4,8 @@ from typing import Final
 
 import streamlit as st
 
-from binary_entropy.ui.model_inputs import probability_widget_entries
+from binary_entropy.ui.hmm_session import write_hmm_widgets
+from binary_entropy.ui.inputs import OBSERVABLE_A_KEY, OBSERVABLE_B_KEY
 from binary_entropy.ui.session import (
     clear_calculation,
     clear_preset_import,
@@ -20,11 +21,8 @@ from binary_entropy.ui.state import (
 )
 from binary_entropy.ui.text import joined_text
 
-STATE_0_KEY: Final = "state_label_0"
-STATE_1_KEY: Final = "state_label_1"
-OBSERVABLE_0_KEY: Final = "observable_label_0"
-OBSERVABLE_1_KEY: Final = "observable_label_1"
-PRESET_NAME_KEY: Final = "preset_name"
+OBSERVABLE_0_KEY: Final = OBSERVABLE_A_KEY
+OBSERVABLE_1_KEY: Final = OBSERVABLE_B_KEY
 
 
 def render_preset_import(form: CalculatorForm) -> None:
@@ -38,11 +36,17 @@ def render_preset_import(form: CalculatorForm) -> None:
             )
         )
     )
+    _ = st.button(
+        "Reset HMM example model",
+        on_click=reset_example_model,
+        type="secondary",
+        key="hmm_reset_example",
+    )
     uploaded = st.file_uploader(
         "Upload model preset JSON",
         type=("json",),
         accept_multiple_files=False,
-        key="preset_upload",
+        key="hmm_preset_upload",
     )
     payload = uploaded.getvalue() if uploaded is not None else None
     _ = st.button(
@@ -50,6 +54,7 @@ def render_preset_import(form: CalculatorForm) -> None:
         on_click=_load_preset,
         args=(payload, form),
         type="secondary",
+        key="hmm_load_preset",
     )
     match preset_import_outcome():  # noqa: RUF100  # noqa: MATCH_OK
         case PresetImportSuccess():
@@ -64,16 +69,13 @@ def render_preset_import(form: CalculatorForm) -> None:
 
 def write_model_widgets(form: CalculatorForm) -> None:
     """Update every model widget from one validated form transaction."""
-    entries: tuple[tuple[str, str | float], ...] = (
-        (STATE_0_KEY, form.model.state_labels[0]),
-        (STATE_1_KEY, form.model.state_labels[1]),
+    entries = (
         (OBSERVABLE_0_KEY, form.model.observable_labels[0]),
         (OBSERVABLE_1_KEY, form.model.observable_labels[1]),
-        *probability_widget_entries(form.model),
-        (PRESET_NAME_KEY, form.preset_name),
     )
     for key, value in entries:
         st.session_state[key] = value
+    write_hmm_widgets(form.model, form.preset_name)
 
 
 def reset_example_model() -> None:

@@ -1,136 +1,226 @@
-"""Stable native Streamlit controls for one editable binary HMM."""
+"""Shared labels and boundary-preserving Streamlit data intake."""
 
+import csv
+import io
+from dataclasses import dataclass
 from typing import Final
 
 import streamlit as st
 
-from binary_entropy.domain import BinaryLabels
-from binary_entropy.errors import BinaryEntropyError
-from binary_entropy.parsing import parse_sequence
-from binary_entropy.ui.model_inputs import (
-    probability_widget_entries,
-    render_probability_inputs,
-)
-from binary_entropy.ui.preset_inputs import (
-    OBSERVABLE_0_KEY,
-    OBSERVABLE_1_KEY,
-    PRESET_NAME_KEY,
-    STATE_0_KEY,
-    STATE_1_KEY,
-    render_preset_import,
-    reset_example_model,
-)
-from binary_entropy.ui.state import (
-    ActualTargetChoice,
-    CalculatorForm,
-    default_form,
-)
+from binary_entropy.batch_parsing import CsvBatchColumns
+from binary_entropy.errors import BatchParseError
+from binary_entropy.ui.state import ActualTargetChoice
 from binary_entropy.ui.text import joined_text
+from binary_entropy.ui.workbench_state import INPUT_MODE_OPTIONS, InputMode, IntakeForm
 
-SEQUENCE_KEY: Final = "sequence_text"
-ACTUAL_TARGET_KEY: Final = "actual_target"
-SEQUENCE_ID_KEY: Final = "sequence_id"
+OBSERVABLE_A_KEY: Final = "shared_observable_a"
+OBSERVABLE_B_KEY: Final = "shared_observable_b"
+INPUT_MODE_KEY: Final = "shared_input_mode"
+SINGLE_TEXT_KEY: Final = "shared_single_sequence"
+BATCH_TEXT_KEY: Final = "shared_batch_sequences"
+SEQUENCE_ID_KEY: Final = "shared_sequence_id"
+TARGET_KEY: Final = "shared_actual_target"
+TXT_UPLOAD_KEY: Final = "shared_txt_upload"
+CSV_UPLOAD_KEY: Final = "shared_csv_upload"
+CSV_ID_KEY: Final = "shared_csv_id_column"
+CSV_SEQUENCE_KEY: Final = "shared_csv_sequence_column"
+CSV_TARGET_KEY: Final = "shared_csv_target_column"
+NO_TARGET_COLUMN: Final = "None"
+TARGET_LABEL: Final = "Optional observed next target — for surprisal calculation only"
+TARGET_HELP: Final = (
+    "This selection evaluates the existing prediction and does not change it."
+)
 
 
-def initialize_form_widgets() -> None:
-    """Populate every keyed control once with the demonstration values."""
-    form = default_form()
-    entries = (
-        (STATE_0_KEY, form.model.state_labels[0]),
-        (STATE_1_KEY, form.model.state_labels[1]),
-        (OBSERVABLE_0_KEY, form.model.observable_labels[0]),
-        (OBSERVABLE_1_KEY, form.model.observable_labels[1]),
-        *probability_widget_entries(form.model),
-        (SEQUENCE_KEY, form.sequence_text),
-        (ACTUAL_TARGET_KEY, form.actual_target),
-        (SEQUENCE_ID_KEY, form.sequence_id),
-        (PRESET_NAME_KEY, form.preset_name),
+@dataclass(frozen=True, slots=True)
+class CsvHeaderSuccess:
+    """Strictly decoded CSV header names in source order."""
+
+    columns: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class CsvHeaderFailure:
+    """CSV header failure suitable for local UI feedback."""
+
+    message: str
+
+
+type CsvHeaderOutcome = CsvHeaderSuccess | CsvHeaderFailure
+
+
+def initialize_intake_widgets() -> None:
+    """Populate stable shared intake keys once with starter values."""
+    defaults: tuple[tuple[str, str | ActualTargetChoice], ...] = (
+        (OBSERVABLE_A_KEY, "A"),
+        (OBSERVABLE_B_KEY, "B"),
+        (INPUT_MODE_KEY, InputMode.SINGLE.value),
+        (SINGLE_TEXT_KEY, "A, B, B, A, A, A, B"),
+        (BATCH_TEXT_KEY, "A, B, B\nB, A, A"),
+        (SEQUENCE_ID_KEY, "sequence-001"),
+        (TARGET_KEY, ActualTargetChoice.NONE),
     )
-    for key, value in entries:
+    for key, value in defaults:
         if key not in st.session_state:
             st.session_state[key] = value
 
 
-def render_form() -> CalculatorForm:
-    """Render model, sequence, metadata, and preset-import controls."""
-    initialize_form_widgets()
-    _ = st.header("Model")
-    _ = st.info(
+def render_observable_labels() -> tuple[str, str]:
+    """Render the two shared observable labels."""
+    initialize_intake_widgets()
+    _ = st.subheader("Observable labels")
+    columns = st.columns(2)
+    label_a = columns[0].text_input("Observable A label", key=OBSERVABLE_A_KEY)
+    label_b = columns[1].text_input("Observable B label", key=OBSERVABLE_B_KEY)
+    _ = st.caption("Labels are trimmed, nonempty, and distinct. Spaces are allowed.")
+    return label_a or "", label_b or ""
+
+
+def render_intake(observable_labels: tuple[str, str]) -> IntakeForm:
+    """Render one shared intake mode and preserve its native boundaries."""
+    initialize_intake_widgets()
+    _ = st.subheader("Data intake")
+    selected_mode = st.selectbox(
+        "Input mode",
+        options=tuple(mode.value for mode in INPUT_MODE_OPTIONS),
+        key=INPUT_MODE_KEY,
+    )
+    mode = InputMode(selected_mode or InputMode.SINGLE.value)
+    text = ""
+    payload: bytes | None = None
+    csv_columns: CsvBatchColumns | None = None
+    sequence_id = "sequence-001"
+    match mode:
+        case InputMode.SINGLE:
+            text = (
+                st.text_area(
+                    "Observed sequence",
+                    key=SINGLE_TEXT_KEY,
+                    height=112,
+                    help=joined_text(
+                        (
+                            "Commas, spaces, tabs, and line breaks belong to one ",
+                            "sequence.",
+                        )
+                    ),
+                )
+                or ""
+            )
+            sequence_id = (
+                st.text_input(
+                    "Sequence ID",
+                    key=SEQUENCE_ID_KEY,
+                )
+                or ""
+            )
+        case InputMode.BATCH:
+            text = (
+                st.text_area(
+                    "Batch sequences",
+                    key=BATCH_TEXT_KEY,
+                    height=144,
+                    help="Each nonblank physical line is one independent sequence.",
+                )
+                or ""
+            )
+        case InputMode.TXT:
+            upload = st.file_uploader(
+                "Upload TXT sequences",
+                type=("txt",),
+                accept_multiple_files=False,
+                key=TXT_UPLOAD_KEY,
+                help="Each nonblank physical line is one independent sequence.",
+            )
+            payload = upload.getvalue() if upload is not None else None
+        case InputMode.CSV:
+            upload = st.file_uploader(
+                "Upload CSV sequences",
+                type=("csv",),
+                accept_multiple_files=False,
+                key=CSV_UPLOAD_KEY,
+            )
+            payload = upload.getvalue() if upload is not None else None
+            if payload is not None:
+                csv_columns = _render_csv_columns(payload)
+    actual_target = _render_target(observable_labels, mode)
+    _ = st.caption(
         joined_text(
             (
-                "Demo HMM: the initial values are a hand-verified two-state example. ",
-                "Edit any parameter before calculation.",
+                "Positions are reported from 1. Batch and file record boundaries ",
+                "are never concatenated.",
             )
         )
     )
-    state_columns = st.columns(2)
-    state_0 = state_columns[0].text_input("Hidden state 1 label", key=STATE_0_KEY)
-    state_1 = state_columns[1].text_input("Hidden state 2 label", key=STATE_1_KEY)
-    observable_columns = st.columns(2)
-    observable_0 = observable_columns[0].text_input(
-        "Variable 1 label", key=OBSERVABLE_0_KEY
+    return IntakeForm(
+        observable_labels=observable_labels,
+        mode=mode,
+        text=text,
+        upload_payload=payload,
+        csv_columns=csv_columns,
+        actual_target=actual_target,
+        sequence_id=sequence_id,
     )
-    observable_1 = observable_columns[1].text_input(
-        "Variable 2 label", key=OBSERVABLE_1_KEY
-    )
-    _ = st.caption(
-        "Labels must be nonempty, distinct, and contain no commas or line breaks."
-    )
-    state_labels = (state_0 or "", state_1 or "")
-    observable_labels = (observable_0 or "", observable_1 or "")
-    model = render_probability_inputs(state_labels, observable_labels)
-    _ = st.button(
-        "Reset example model",
-        on_click=reset_example_model,
-        type="secondary",
-    )
-    _ = st.header("Sequence")
-    sequence_text = st.text_area(
-        "Observed sequence",
-        key=SEQUENCE_KEY,
-        height=112,
-        help="Separate variable labels with commas, spaces, or line breaks.",
-    )
-    _render_sequence_feedback(sequence_text or "", state_labels, observable_labels)
-    target_labels = {
-        ActualTargetChoice.NONE: "None",
-        ActualTargetChoice.FIRST: observable_labels[0] or "Variable 1",
-        ActualTargetChoice.SECOND: observable_labels[1] or "Variable 2",
-    }
-    actual_target = st.radio(
-        "Optional actual next target",
-        options=tuple(ActualTargetChoice),
-        format_func=target_labels.__getitem__,
-        key=ACTUAL_TARGET_KEY,
-        horizontal=True,
-        help="Assessed separately against the final predictive distribution.",
-    )
-    metadata_columns = st.columns(2)
-    sequence_id = metadata_columns[0].text_input(
-        "Sequence ID for candidate-summary CSV", key=SEQUENCE_ID_KEY
-    )
-    preset_name = metadata_columns[1].text_input("Preset name", key=PRESET_NAME_KEY)
-    form = CalculatorForm(
-        model=model,
-        sequence_text=sequence_text or "",
-        actual_target=actual_target or ActualTargetChoice.NONE,
-        sequence_id=sequence_id or "",
-        preset_name=preset_name or "",
-    )
-    render_preset_import(form)
-    return form
 
 
-def _render_sequence_feedback(
-    text: str,
-    state_labels: tuple[str, str],
-    observable_labels: tuple[str, str],
-) -> None:
+def parse_csv_header(payload: bytes) -> CsvHeaderOutcome:
+    """Decode only the CSV header so the user can map columns explicitly."""
     try:
-        labels = BinaryLabels(states=state_labels, observables=observable_labels)
-        sequence = parse_sequence(text, labels)
-    except BinaryEntropyError as error:
+        text = payload.decode("utf-8-sig", errors="strict")
+        row = next(csv.reader(io.StringIO(text, newline=""), strict=True), None)
+    except (UnicodeDecodeError, csv.Error) as error:
+        return CsvHeaderFailure(str(error))
+    if row is None:
+        return CsvHeaderFailure("CSV header is missing")
+    columns = tuple(name.strip() for name in row)
+    if any(not name for name in columns) or len(set(columns)) != len(columns):
+        return CsvHeaderFailure("CSV header names must be nonempty and distinct")
+    return CsvHeaderSuccess(columns)
+
+
+def _render_csv_columns(payload: bytes) -> CsvBatchColumns | None:
+    match parse_csv_header(payload):
+        case CsvHeaderFailure(message=message):
+            _ = st.error(message)
+            return None
+        case CsvHeaderSuccess(columns=columns):
+            id_column = st.selectbox("ID column", options=columns, key=CSV_ID_KEY)
+            sequence_index = 1 if len(columns) > 1 else 0
+            sequence_column = st.selectbox(
+                "Sequence column",
+                options=columns,
+                index=sequence_index,
+                key=CSV_SEQUENCE_KEY,
+            )
+            target_column = st.selectbox(
+                "Target column (optional)",
+                options=(NO_TARGET_COLUMN, *columns),
+                key=CSV_TARGET_KEY,
+            )
+    target = None if target_column == NO_TARGET_COLUMN else target_column
+    try:
+        return CsvBatchColumns(id_column or "", sequence_column or "", target)
+    except BatchParseError as error:
         _ = st.error(str(error))
-        return
-    length = len(sequence)
-    _ = st.caption(f"Sequence length: {length}. Context depth: {length}.")
+        return None
+
+
+def _render_target(
+    observable_labels: tuple[str, str],
+    mode: InputMode,
+) -> ActualTargetChoice:
+    if mode is InputMode.CSV:
+        return ActualTargetChoice.NONE
+    labels = {
+        ActualTargetChoice.NONE: "None",
+        ActualTargetChoice.FIRST: observable_labels[0] or "Observable A",
+        ActualTargetChoice.SECOND: observable_labels[1] or "Observable B",
+    }
+    target = st.radio(
+        TARGET_LABEL,
+        options=tuple(ActualTargetChoice),
+        format_func=labels.__getitem__,
+        key=TARGET_KEY,
+        horizontal=True,
+        help=TARGET_HELP,
+    )
+    return target or ActualTargetChoice.NONE
