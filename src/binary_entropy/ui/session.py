@@ -14,6 +14,12 @@ from binary_entropy.ui.state import (
     PresetImportOutcome,
     PresetImportSuccess,
 )
+from binary_entropy.ui.workbench_state import (
+    WorkbenchCalculationFailure,
+    WorkbenchCalculationOutcome,
+    WorkbenchCalculationSuccess,
+    WorkbenchForm,
+)
 
 CALCULATION_KEY: Final = "_calculation_record"
 SUBMISSION_KEY: Final = "_submission_failure"
@@ -31,6 +37,21 @@ class CalculationRecord:
 @dataclass(frozen=True, slots=True)
 class SubmissionFailure:
     """Calculation error paired with the invalid submitted inputs."""
+
+    message: str
+    fingerprint: str
+
+
+@dataclass(frozen=True, slots=True)
+class WorkbenchCalculationRecord:
+    """A submitted multi-method calculation and its method fingerprints."""
+
+    success: WorkbenchCalculationSuccess
+
+
+@dataclass(frozen=True, slots=True)
+class WorkbenchSubmissionFailure:
+    """A shared-input failure paired with the submitted form identity."""
 
     message: str
     fingerprint: str
@@ -77,6 +98,44 @@ def clear_calculation() -> None:
     for key in (CALCULATION_KEY, SUBMISSION_KEY):
         if key in st.session_state:
             del st.session_state[key]
+
+
+def store_workbench_calculation(
+    outcome: WorkbenchCalculationOutcome,
+    form: WorkbenchForm,
+) -> None:
+    """Replace prior output with one immutable workbench submission."""
+    clear_calculation()
+    match outcome:
+        case WorkbenchCalculationSuccess() as success:
+            st.session_state[CALCULATION_KEY] = WorkbenchCalculationRecord(success)
+        case WorkbenchCalculationFailure(message=message):
+            st.session_state[SUBMISSION_KEY] = WorkbenchSubmissionFailure(
+                message,
+                form.fingerprint(),
+            )
+
+
+def workbench_calculation_record() -> WorkbenchCalculationRecord | None:
+    """Return the current typed workbench result record when present."""
+    match st.session_state.get(CALCULATION_KEY):
+        case WorkbenchCalculationRecord() as record:
+            return record
+        case _:
+            return None
+
+
+def workbench_submission_failure(
+    form: WorkbenchForm,
+) -> WorkbenchSubmissionFailure | None:
+    """Return only a shared-input failure for the unchanged current form."""
+    match st.session_state.get(SUBMISSION_KEY):
+        case WorkbenchSubmissionFailure() as failure if (
+            failure.fingerprint == form.fingerprint()
+        ):
+            return failure
+        case _:
+            return None
 
 
 def store_preset_import(outcome: PresetImportOutcome) -> None:
