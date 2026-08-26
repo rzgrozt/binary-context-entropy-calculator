@@ -1,11 +1,9 @@
-# Binary Sequence Predictive Entropy Calculator
+# Binary Sequence Probability, Prediction & Entropy Workbench
 
-A local Streamlit scientific calculator for one binary observed sequence under
-one configured two-state hidden Markov model (HMM). It reports the model's
-next-observable prediction at depth 0 and after every consumed prefix.
-
-The entered sequence alone does not uniquely determine predictions. Results
-are conditional on the selected HMM parameters.
+A local Streamlit workbench for fitting, comparing, and inspecting binary
+sequence methods. It keeps independently submitted records separate and makes
+the distinction between a next-symbol prediction and a description of symbols
+already observed explicit.
 
 ## Install and run
 
@@ -16,162 +14,238 @@ uv sync
 uv run streamlit run streamlit_app.py
 ```
 
-## Implemented architecture
+## Choose methods and provide data
 
-- `streamlit_app.py` is the single Streamlit entry point.
-- `src/binary_entropy/domain.py` owns immutable, validated HMM and result
-  values.
-- `src/binary_entropy/parsing.py` parses sequence text into observable
-  indices.
-- `src/binary_entropy/filtering.py`, `analysis.py`, and `information.py`
-  perform filtering, every-prefix analysis, entropy, and surprisal.
-- `src/binary_entropy/presentation.py` and `serialization.py` provide stable
-  tables and exports.
-- `src/binary_entropy/ui/` collects form state, handles explicit submission
-  and stale results, and renders summaries, tables, the entropy chart, and
-  downloads.
+The setup screen selects **Markov Chain** by default. Choose any subset of:
 
-The reusable package exports `BinaryHMM`, `BinaryLabels`,
-`SequenceAnalysis`, `parse_sequence`, and `analyze_sequence`.
+- **Markov Chain**, a fitted first-order predictive model.
+- **Hidden Markov Model**, a configured two-hidden-state, two-observable
+  predictive model.
+- **Observed Shannon Entropy**, a descriptive analysis with no prediction.
 
-## Inputs and validation
+Only controls for selected methods appear. Results run only after
+**Calculate selected methods** is pressed, and changing a relevant input hides
+the stale result until recalculation.
 
-The UI has exactly two observable labels and exactly two hidden-state labels.
-Labels are trimmed, must be distinct within their category, and may be any
-nonempty length except that commas and line breaks are not allowed. Observable
-labels may contain spaces.
+The two observable labels are shared by all selected methods. Labels may
+contain spaces, so sequences are parsed as complete labels rather than by
+splitting every space. Commas and whitespace, including tabs and newlines,
+separate symbols within a sequence.
 
-The sequence may be any length, including empty. It accepts configured whole
-observable labels separated by commas, spaces, tabs, line breaks, or mixed
-separators. For example, with labels `light red` and `deep blue`, this is
-valid:
+### Input modes and record boundaries
+
+- **Single sequence** accepts one sequence. Newlines remain part of that one
+  sequence. A sequence ID and optional observed next target apply to it.
+- **Batch paste** treats each nonblank physical line as an independent
+  sequence. IDs are assigned in submitted order as `sequence-001`,
+  `sequence-002`, and so on. An optional selected target applies to every
+  record.
+- **TXT upload** accepts one `.txt` file, decoded as strict UTF-8 with an
+  optional UTF-8 BOM. Each nonblank physical line is one independent sequence.
+  An optional selected target applies to every record.
+- **CSV upload** accepts one `.csv` file, decoded as strict UTF-8 with an
+  optional UTF-8 BOM. Map the ID and sequence columns explicitly, then
+  optionally map a target column. Each CSV row is one record, and a mapped
+  target must contain at most one configured symbol.
+
+No method concatenates records or counts a transition from the end of one
+record to the start of another. Empty sequences are allowed where the chosen
+input supplies a valid record ID, although some quantities are unavailable
+without observations or transitions.
+
+## Methods and equations
+
+All logarithms are base 2. For a binary distribution `(p, 1-p)`, entropy is
 
 ```text
-light red, deep blue
-light red deep blue
+H(p) = -p log2(p) - (1-p) log2(1-p)
 ```
 
-For the initial distribution `pi`, each row of the transition matrix `T`, and
-each row of the emission matrix `E`, every value must be finite and in
-`[0, 1]`; each two-value row must sum to 1 within an absolute tolerance of
-`1e-12`. Invalid input is rejected, never silently normalized, clamped, or
-redistributed.
+with `0 log2(0) = 0`. Thus binary entropy is in `[0, 1]` bits.
 
-## Model convention and equations
+### First-order Markov Chain
 
-Rows are state distributions, `T[i, j]` is the transition from hidden state
-`i` to `j`, and `E[i, x]` is the emission probability of observable `x` from
-hidden state `i`. The initial distribution `pi` applies at the first
-observation.
+The Markov method is first-order only. Its prediction after a nonempty prefix
+uses the transition row for the current, final observed symbol:
 
-At context depth 0, no observation has been consumed and no transition is
-applied:
+```text
+T[i, j] = P(X[t+1] = j | X[t] = i)
+q_t = T[X[t], :]
+```
+
+The method does not condition directly on a longer history. Longer sequences
+can affect a fitted transition estimate, but they do not create a higher-order
+model. At depth 0, no current state exists, so a Markov prediction is
+unavailable.
+
+For transition counts `n[i, j]`, choose maximum likelihood estimation or
+additive smoothing with `alpha >= 0`:
+
+```text
+T[i, j] = (n[i, j] + alpha) / (sum_j n[i, j] + 2 alpha)
+```
+
+Maximum likelihood uses `alpha = 0`. If no outgoing transition has been seen
+for a state, its maximum-likelihood row and predictions from it are
+unavailable. Laplace/add-one smoothing uses `alpha = 1`; a custom nonnegative
+alpha is also available.
+
+Choose one prefix mode:
+
+- **Fixed fitted transition matrix** fits one model to the selected scope and
+  uses its row for each prefix's current state.
+- **Re-estimate from each prefix** fits from the prefix of that record at each
+  depth. This updates estimates with evidence; it does not add higher-order
+  memory.
+
+Choose a result scope:
+
+- **Pooled model** counts transitions across all records while preserving every
+  record boundary. Its final fitted matrix is shared by record results.
+- **Per-sequence analysis** fits a separate full-sequence model for each
+  record.
+
+The Markov results also report fitted transition counts, starting-symbol
+frequencies, empirical conditional entropy, and, when identifiable, the unique
+stationary distribution and its entropy rate.
+
+### Configured Hidden Markov Model
+
+The HMM remains a configured model with exactly two hidden states and two
+observable symbols. It is not fitted or trained from the entered sequences.
+Each record is filtered independently under the same submitted model.
+
+Rows are distributions. `T[i, j]` is the transition probability from hidden
+state `i` to `j`, `E[i, x]` is the probability of observable `x` from hidden
+state `i`, and `pi` is the initial hidden distribution. At depth 0, no
+observation or transition has been consumed:
 
 ```text
 next_hidden_0 = pi
-q_1 = normalize(pi @ E)
+q_0 = normalize(pi @ E)
 ```
 
-For observation `x_t` at a later depth, with the prior hidden distribution
-`prior_t`, the calculator computes:
+After observing `x_t`, filtering follows the existing convention:
 
 ```text
-unnormalized_posterior_t = prior_t * E[:, x_t]
-posterior_t = normalize(unnormalized_posterior_t)
+posterior_t = normalize(prior_t * E[:, x_t])
 next_hidden_t = normalize(posterior_t @ T)
 q_t = normalize(next_hidden_t @ E)
 ```
 
-Thus the first-observation posterior is proportional to `pi * emission`; each
-later prior is the preceding `posterior @ T`; and the next-hidden distribution
-is also `posterior @ T`. Calculated vectors are normalized at every step.
+`q_t` is the distribution for the next observable after the consumed prefix.
+The HMM controls preserve schema-v1 model preset compatibility. A preset holds
+the preset name, hidden-state and observable labels, `initial`, `transition`,
+and `emission`; it does not hold sequence data or a target.
 
-`q_t` is the next-observable distribution after the prefix of depth `t`.
-Depth is the number of observations already consumed, so a sequence of length
-`n` has rows 0 through `n`.
+### Observed-symbol Shannon entropy
 
-## Information quantities
+Observed Shannon entropy summarizes the empirical symbol frequencies already
+present in a record or pooled dataset:
 
-These are intentionally separate quantities:
-
-- **HMM predictive entropy** is the binary Shannon entropy of `q_t` and
-  measures next-observable uncertainty under the selected HMM:
-  `H(q) = -sum_x q(x) log2 q(x)`.
-- **Observed-symbol Shannon entropy** is descriptive entropy of empirical
-  `A`/`B` frequencies in the entered sequence. It is not an HMM prediction.
-- **Target surprisal** is the self-information of a specified candidate or an
-  optional user-selected actual next target: `I(x) = -log2 q(x)`.
-
-The convention is `0 log2 0 = 0` for entropy and `surprisal(0) = infinity`.
-For a binary distribution, `H` is in `[0, 1]` bits. Deterministic modal ties
-choose observable variable 1, the first configured observable (index 0).
-
-The optional actual-target assessment is separate from the internal
-observed-next value attached to each nonfinal prefix for presentation/export.
-It evaluates only the user-selected target against the final prediction.
-
-## Results, graph, and exports
-
-After the explicit **Calculate entropy** action, the application renders a
-final summary and an every-prefix table. The table is the exact-value fallback
-for the Plotly line-and-marker graph of predictive entropy by context depth.
-The graph's y-axis is fixed to 0--1 bits. Display values, chart hover values,
-and CSV floats use 12 decimal places.
-
-Available downloads are:
-
-- **Model preset JSON**: strict UTF-8 schema version 1 containing
-  `schema_version`, `preset_name`, state and observable labels, `initial`,
-  `transition`, and `emission`. It contains model parameters only, not the
-  sequence or optional target.
-- **Prefix CSV**: one deterministic row for every depth from 0 through the
-  full prefix. It includes predictive probabilities, entropy, candidate
-  surprisals, observed/next target fields, posterior, and next-hidden values.
-- **Candidate-summary CSV**: one row with reproducibility fields (sequence
-  ID, preset name, labels, sequence, all model probabilities, sequence length,
-  and observed entropy) plus final prediction fields. Its actual-target
-  symbol, probability, surprisal, and classification fields are optional and
-  are empty when no actual target was selected.
-
-For example, a preset has this shape:
-
-```json
-{
-  "schema_version": 1,
-  "preset_name": "hand-calculated model",
-  "state_labels": ["State 1", "State 2"],
-  "observable_labels": ["A", "B"],
-  "initial": [0.6, 0.4],
-  "transition": [[0.7, 0.3], [0.2, 0.8]],
-  "emission": [[0.9, 0.1], [0.2, 0.8]]
-}
+```text
+p_A = count(A) / n
+H_observed = H(p_A)
 ```
 
-## Reusable Python core
+It does not produce a next-symbol distribution, prediction, or target score.
+The workbench shows pooled and per-sequence summaries, plus nonempty prefix
+summaries for each record.
 
-Use only the package-level public API for a programmatic calculation:
+### Predictive entropy and target surprisal
+
+Markov and HMM predictive entropy apply `H` to their next-symbol distribution
+`q_t`. Observed-symbol Shannon entropy instead describes data that has already
+been supplied, so the two are not interchangeable.
+
+An optional observed next target evaluates an existing final Markov or HMM
+prediction without changing fitting or prediction:
+
+```text
+I(x) = -log2(q_t[x])
+```
+
+`I(x)` is `infinity` when `q_t[x] = 0`. When predicted probabilities tie, the
+first configured observable is the reported modal symbol; target assessment
+still identifies the probabilities as tied.
+
+## Results, precision, and downloads
+
+The UI displays scientific values to exactly three decimal places. Calculations
+retain float64 precision. HMM CSV exports use 12 fixed decimal places; Markov
+CSV exports preserve round-trip float64 values with at least 12 fractional
+decimal places. JSON exports retain their serialized numeric values.
+
+Selected methods appear in a comparison table. Predictive fields are marked
+not applicable for Observed Shannon Entropy. Each predictive method also shows
+per-sequence final values and prefix evidence. HMM results include an entropy
+chart; Markov results include probability and entropy charts when predictions
+are available.
+
+Available downloads are method-specific:
+
+- **Markov model JSON** contains the fitted model and analysis settings,
+  including counts, matrix availability, stationary information, scope, and
+  prefix mode. It does not contain source sequences.
+- **Markov prefix CSV** contains one row for every depth of every submitted
+  record, including context, fitted-transition count, prediction when
+  available, and final target assessment when supplied.
+- **Markov batch-summary CSV** contains one deterministic summary row per
+  record with sequence, counts, fitted transition values, final prediction,
+  observed Shannon entropy, optional target assessment, and method settings.
+- **HMM preset JSON** imports and exports the schema-v1 configured model.
+- **HMM prefix CSV** and **HMM candidate-summary CSV** are available for each
+  record. The prefix file covers depths 0 through the complete prefix; the
+  summary file records the configured model, observed entropy, final
+  prediction, and an optional target assessment.
+
+Observed Shannon Entropy currently has no download export.
+
+## Reusable Python API
+
+The package exposes immutable records, parsers, method requests, and analysis
+functions. This example parses a batch, runs a first-order Markov analysis,
+and serializes its prefix rows:
 
 ```python
-from binary_entropy import BinaryHMM, BinaryLabels, analyze_sequence, parse_sequence
+from binary_entropy import (
+    BinaryLabels,
+    MarkovAnalysisRequest,
+    analyze_dataset,
+    markov_sequence_csv,
+    parse_manual_batch,
+)
 
-labels = BinaryLabels(
-    states=("State 1", "State 2"),
-    observables=("A", "B"),
-)
-model = BinaryHMM(
-    labels=labels,
-    initial=[0.6, 0.4],
-    transition=[[0.7, 0.3], [0.2, 0.8]],
-    emission=[[0.9, 0.1], [0.2, 0.8]],
-)
-sequence = parse_sequence("A, B, B, A, A, A, B", labels)
-analysis = analyze_sequence(model, sequence)
-final_prediction = analysis.rows[-1].predictive
+labels = BinaryLabels(states=("State 1", "State 2"), observables=("A", "B"))
+dataset = parse_manual_batch("A, B, B\nB, A", labels)
+result = analyze_dataset(dataset, MarkovAnalysisRequest(smoothing_alpha=1.0))
+csv_text = markov_sequence_csv(result)
 ```
 
-## Hand-worked reference model
+For a configured HMM, use `BinaryHMM`, `HMMAnalysisRequest`, and
+`analyze_dataset`. `parse_csv_batch`, `parse_txt_batch`, `SequenceRecord`,
+`SequenceDataset`, `ShannonAnalysisRequest`, `compare_methods`, and the Markov
+fit and prediction functions are also public exports.
 
-The included example uses:
+## Architecture
+
+- `streamlit_app.py` provides setup, selected-method controls, explicit
+  submission, stale-result handling, and rendering.
+- `records.py` and `batch_parsing.py` define independent records and single,
+  multiline, TXT, and CSV intake boundaries.
+- `workbench.py` routes typed Markov, HMM, and Shannon requests.
+- `methods/markov.py`, `methods/hmm.py`, and `methods/shannon.py` implement
+  the three analyses.
+- `markov_types.py`, `markov_information.py`, and the Markov serialization
+  modules hold fitted-model values, information measures, and exports.
+- The existing HMM domain, filtering, analysis, presentation, and serialization
+  modules preserve the configured HMM calculation and schema-v1 preset path.
+- `ui/` contains input controls, result tables, charts, downloads, and session
+  state.
+
+## Hand-worked HMM reference
+
+The included HMM example uses:
 
 ```text
 pi = [0.6, 0.4]
@@ -179,40 +253,23 @@ T = [[0.7, 0.3], [0.2, 0.8]]
 E = [[0.9, 0.1], [0.2, 0.8]]
 ```
 
-For the hand-worked initial row, `q_0 = pi @ E = [0.62, 0.38]`. After observing `A`, the
+At depth 0, `q_0 = pi @ E = [0.62, 0.38]`. After observing `A`, the
 unnormalized posterior is `[0.54, 0.08]`, its likelihood is `0.62`, and the
 posterior is `[27/31, 4/31]`. The next hidden distribution is
 `[0.635483870967742, 0.364516129032258]`; the following prediction is
-`[0.644838709677419, 0.355161290322581]`; its entropy is
+`[0.644838709677419, 0.355161290322581]`; its predictive entropy is
 `0.938593249062606` bits.
 
-For `A,B,B,A,A,A,B`, the observed-symbol Shannon entropy for four `A` values
-and three `B` values is `0.985228136034251` bits.
+For `A,B,B,A,A,A,B`, the observed-symbol Shannon entropy is
+`0.985228136034251` bits. `tests/fixtures/hand_sequence.json` is the
+authoritative machine-readable source for this model and its complete HMM
+prefix profile. `tests/unit/test_filtering_analysis.py` reproduces the
+first-observation derivation and every filtering value; `tests/ui/test_results.py`
+checks the visible HMM table.
 
-The following is the complete program output profile at canonical display
-precision. Context is the consumed prefix; surprisals are hypothetical values
-for the next observable at that depth.
+## Tests and quality gates
 
-| Depth | Context | P(A) | P(B) | Predicted target | Entropy (bits) | Surprisal A (bits) | Surprisal B (bits) |
-| ---: | --- | ---: | ---: | --- | ---: | ---: | ---: |
-| 0 | `(empty prefix)` | 0.620000000000 | 0.380000000000 | A | 0.958042022226 | 0.689659879388 | 1.395928676331 |
-| 1 | `A` | 0.644838709677 | 0.355161290323 | A | 0.938593249063 | 0.632989743417 | 1.493453746597 |
-| 2 | `A, B` | 0.402624886467 | 0.597375113533 | B | 0.972465360818 | 1.312491746094 | 0.743290958227 |
-| 3 | `A, B, B` | 0.356959602256 | 0.643040397744 | B | 0.940130453574 | 1.486167283721 | 0.637018720019 |
-| 4 | `A, B, B, A` | 0.537870628970 | 0.462129371030 | A | 0.995857852439 | 0.894668883793 | 1.113631310744 |
-| 5 | `A, B, B, A, A` | 0.622673518217 | 0.377326481783 | A | 0.956131895281 | 0.683452170979 | 1.406114738984 |
-| 6 | `A, B, B, A, A, A` | 0.645461975872 | 0.354538024128 | A | 0.938055727085 | 0.631595985934 | 1.495987730386 |
-| 7 | `A, B, B, A, A, A, B` | 0.402822877316 | 0.597177122684 | B | 0.972577939805 | 1.311782474967 | 0.743769196699 |
-
-`tests/fixtures/hand_sequence.json` is the authoritative machine-readable
-source for this model and full-depth numeric profile. The fixture-backed tests
-in `tests/unit/test_filtering_analysis.py` reproduce the first-observation
-derivation and every filtering value; `tests/ui/test_results.py` checks the
-all-depth visible numeric table. Tests do not assert this README's prose.
-
-## Tests and strict gates
-
-Run the focused numerical checks or the full release gates:
+Run the focused HMM reference checks or the full suite and static gates:
 
 ```bash
 uv run pytest tests/unit/test_filtering_analysis.py tests/ui/test_results.py
@@ -221,33 +278,35 @@ uv run ruff check .
 uv run basedpyright
 ```
 
-The suite also contains Streamlit `AppTest` integration coverage for explicit
-calculation, validation, stale results, JSON preset import, and optional
-actual-target assessment.
+The suite covers parsers and record boundaries, Markov fitting and scope,
+Shannon prefixes, serialization, and Streamlit `AppTest` workflows for method
+selection, uploads, presets, targets, results, and stale state.
 
 ## Limitations
 
-- The first release UI is fixed at two hidden states and two observables.
-- Model parameters are supplied by the user; the application does not learn
-  or train an HMM.
-- The first release analyzes one sequence at a time and has no batch mode.
-- Results are conditional model calculations and make no causal or
-  statistical-validity claim beyond that calculation.
-- Numerical calculations use float64 arithmetic.
+- The workbench is binary only. The HMM has two hidden states and two
+  observables; Markov order is fixed at one.
+- Markov fitting is count-based MLE or additive smoothing. There is no
+  higher-order fitting, HMM training, or statistical inference.
+- A maximum-likelihood Markov row with no outgoing evidence is unavailable.
+- Stationary distributions and entropy rates appear only when the fitted
+  transition matrix identifies a unique stationary distribution.
+- Results are conditional calculations, not causal claims or validation of a
+  model's suitability for a dataset.
+- Numerical work uses float64 arithmetic.
 
 ## Citation
 
-> [!NOTE]
-> If you use this software in research, please cite:
->
-> Ozturk, R. (2026). *Binary Sequence Predictive Entropy Calculator*
-> (Version 0.1.0) [Computer software]. GitHub.
+If you use this software in research, cite:
+
+> Ozturk, R. (2026). *Binary Sequence Probability, Prediction & Entropy
+> Workbench* (Version 0.1.0) [Computer software]. GitHub.
 > https://github.com/rzgrozt/binary-context-entropy-calculator
 
 ```bibtex
-@software{ozturk2026binaryentropy,
+@software{ozturk2026binaryworkbench,
   author  = {Ozturk, Ruzgar},
-  title   = {Binary Sequence Predictive Entropy Calculator},
+  title   = {Binary Sequence Probability, Prediction \& Entropy Workbench},
   year    = {2026},
   version = {0.1.0},
   url     = {https://github.com/rzgrozt/binary-context-entropy-calculator}
