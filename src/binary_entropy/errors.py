@@ -271,3 +271,22 @@ class _BatchParseBaseError(BinaryEntropyError):
 
 class BatchParseError(_FrozenMetadataError, _BatchParseBaseError):
     """Manual, TXT, or CSV batch input could not be parsed atomically."""
+
+
+@dataclass(frozen=True, slots=True)
+class _InvalidSmoothingAlphaBaseError(BinaryEntropyError):
+    smoothing_alpha: float
+
+    @override
+    def __str__(self) -> str:
+        return (
+            "smoothing alpha must be finite and greater than or equal to zero; "
+            f"got {self.smoothing_alpha}"
+        )
+
+
+class InvalidSmoothingAlphaError(
+    _FrozenMetadataError,
+    _InvalidSmoothingAlphaBaseError,
+):
+    """A Markov additive-smoothing parameter is outside its domain."""
