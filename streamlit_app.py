@@ -1,100 +1,91 @@
-"""Streamlit entry point for the predictive entropy calculator."""
+"""Streamlit entry point for the binary sequence scientific workbench."""
 
 from pathlib import Path
 from typing import Final
 
 import streamlit as st
 
-from binary_entropy.ui.inputs import render_form
+from binary_entropy.ui.form import render_workbench_form
 from binary_entropy.ui.results_view import render_results
 from binary_entropy.ui.session import (
-    calculation_record,
-    store_calculation,
-    submission_failure,
+    store_workbench_calculation,
+    workbench_calculation_record,
+    workbench_submission_failure,
 )
-from binary_entropy.ui.state import calculate_form
+from binary_entropy.ui.setup import (
+    render_continue,
+    render_method_selection,
+    setup_is_complete,
+)
 from binary_entropy.ui.text import joined_text
+from binary_entropy.ui.workbench_state import calculate_workbench
 
 STYLES_PATH: Final = Path(__file__).parent / "assets" / "styles.css"
-SCIENTIFIC_WARNING: Final = joined_text(
-    (
-        "The entered sequence alone does not uniquely determine a next-target ",
-        "probability distribution. HMM predictive results depend on the selected ",
-        "HMM parameters.",
-    )
-)
+PAGE_TITLE: Final = "Binary Sequence Probability, Prediction & Entropy Workbench"
 
 _ = st.set_page_config(
-    page_title="Binary Sequence Predictive Entropy Calculator",
+    page_title=PAGE_TITLE,
     page_icon=None,
     layout="wide",
     initial_sidebar_state="collapsed",
 )
 _ = st.html(STYLES_PATH)
-with st.container(key="calculator-layout"):
+
+with st.container(key="workbench-layout"):
     with st.container(key="header-region"):
-        _ = st.title("Binary Sequence Predictive Entropy Calculator")
+        _ = st.title(PAGE_TITLE)
         _ = st.markdown(
             joined_text(
                 (
-                    "Configure one two-state hidden Markov model (HMM), ",
-                    "enter a binary sequence, and inspect next-target predictive ",
-                    "entropy across every prefix.",
-                )
-            )
-        )
-        _ = st.markdown(
-            joined_text(
-                (
-                    "**Predictive probabilities are conditional on the currently ",
-                    "selected HMM.**",
+                    "Fit and compare selected binary-sequence methods without ",
+                    "crossing record boundaries.",
                 )
             )
         )
 
-    with st.container(key="configuration-region"):
-        form = render_form()
-        _ = st.header("Calculate")
-        _ = st.caption(
-            "Inputs may be edited freely. No calculation runs automatically."
-        )
-        if st.button("Calculate entropy", type="primary"):
-            store_calculation(calculate_form(form), form)
-
-    with st.container(key="results-region"):
-        render_results(form, calculation_record(), submission_failure(form))
-
-    with st.container(key="interpretation-region"):
-        _ = st.header("How to interpret this")
-        _ = st.warning(SCIENTIFIC_WARNING)
-        _ = st.markdown(
-            joined_text(
-                (
-                    "- **HMM predictive entropy** measures uncertainty in the ",
-                    "next observable ",
-                    "under the selected model after a prefix.\n",
-                    "- **Observed-symbol Shannon entropy** describes the ",
-                    "composition of the ",
-                    "entered sequence; it is not a next-target prediction.\n",
-                    "- **Actual-target surprisal** is the realized ",
-                    "self-information of an ",
-                    "optional user-selected next target under the final prediction.",
-                )
+    if not setup_is_complete():
+        with st.container(key="setup-region"):
+            _ = st.subheader("Analysis setup")
+            _ = st.caption(
+                "Select the methods that apply. Markov Chain is selected by default."
             )
+            setup_methods = render_method_selection()
+            render_continue(setup_methods)
+        st.stop()
+
+    with st.container(key="workbench-columns"):
+        configuration_column, results_column = st.columns(
+            (4, 6),
+            gap="large",
+            vertical_alignment="top",
         )
-        with st.expander("Method and definitions"):
-            _ = st.markdown(
+        with configuration_column, st.container(key="configuration-region"):
+            _ = st.header("Analysis configuration")
+            methods = render_method_selection()
+            if methods:
+                _ = st.caption(
+                    "Active methods: " + ", ".join(method.value for method in methods)
+                )
+            else:
+                _ = st.error("Select at least one analysis method.")
+            form = render_workbench_form(methods)
+            _ = st.caption(
                 joined_text(
                     (
-                        "The initial distribution `pi` is the hidden-state ",
-                        "distribution at the first observation. Therefore, ",
-                        "**depth 0 uses q1=pi E without transition**. After each ",
-                        "observation, filtering forms the hidden posterior, ",
-                        "applies `T` to obtain the next-hidden distribution, ",
-                        "and applies `E` to obtain the next-observable predictive ",
-                        "distribution. Predictive entropy is binary Shannon ",
-                        "entropy in bits, and candidate ",
-                        "surprisal is `-log2(probability)`.",
+                        "No calculation runs while editing. Submit the current ",
+                        "immutable configuration explicitly.",
                     )
                 )
+            )
+            if st.button(
+                "Calculate selected methods",
+                type="primary",
+                disabled=not methods,
+            ):
+                store_workbench_calculation(calculate_workbench(form), form)
+        with results_column, st.container(key="results-region"):
+            render_results(
+                form,
+                workbench_calculation_record(),
+                workbench_submission_failure(form),
             )
