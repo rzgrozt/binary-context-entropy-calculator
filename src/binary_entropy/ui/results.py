@@ -1,15 +1,15 @@
-"""Canonical visible result values derived from core analysis objects."""
+"""Unrounded HMM table values and three-decimal metric text."""
 
 import math
 from dataclasses import dataclass
 
-import pandas as pd  # noqa: RUF100  # noqa: PANDAS_OK
+import pandas as pd
 
 from binary_entropy.domain import BinaryHMM, SequenceAnalysis, float_values
 from binary_entropy.information import surprisal
-from binary_entropy.presentation import format_decimal
+from binary_entropy.ui.tokens import format_ui_decimal
 
-type VisibleCell = str | int
+type VisibleCell = str | int | float | None
 type VisibleRow = tuple[VisibleCell, ...]
 
 
@@ -33,7 +33,7 @@ class FinalMetrics:
 
 
 def final_metrics(analysis: SequenceAnalysis, model: BinaryHMM) -> FinalMetrics:
-    """Prepare the complete final prediction at canonical precision."""
+    """Prepare the complete final HMM prediction at visible precision."""
     final = analysis.rows[-1]
     probability_0, probability_1 = float_values(final.predictive)
     next_hidden_0, next_hidden_1 = float_values(final.next_hidden)
@@ -46,26 +46,26 @@ def final_metrics(analysis: SequenceAnalysis, model: BinaryHMM) -> FinalMetrics:
     return FinalMetrics(
         depth=final.depth,
         context=_context(analysis, model, final.depth),
-        probability_0=format_decimal(probability_0),
-        probability_1=format_decimal(probability_1),
+        probability_0=format_ui_decimal(probability_0),
+        probability_1=format_ui_decimal(probability_1),
         predicted_target=model.labels.observables[final.predicted_index],
-        entropy_bits=format_decimal(final.entropy_bits),
-        surprisal_0=_information_text(surprisal(probability_0)),
-        surprisal_1=_information_text(surprisal(probability_1)),
+        entropy_bits=format_ui_decimal(final.entropy_bits),
+        surprisal_0=format_information(surprisal(probability_0)),
+        surprisal_1=format_information(surprisal(probability_1)),
         posterior=posterior_text,
         posterior_0=(
-            format_decimal(posterior[0]) if posterior is not None else posterior_text
+            format_ui_decimal(posterior[0]) if posterior is not None else posterior_text
         ),
         posterior_1=(
-            format_decimal(posterior[1]) if posterior is not None else posterior_text
+            format_ui_decimal(posterior[1]) if posterior is not None else posterior_text
         ),
-        next_hidden_0=format_decimal(next_hidden_0),
-        next_hidden_1=format_decimal(next_hidden_1),
+        next_hidden_0=format_ui_decimal(next_hidden_0),
+        next_hidden_1=format_ui_decimal(next_hidden_1),
     )
 
 
 def prefix_dataframe(analysis: SequenceAnalysis, model: BinaryHMM) -> pd.DataFrame:
-    """Build a depth-sorted visible table without internal look-ahead targets."""
+    """Build an unrounded HMM prefix dataframe for native Streamlit display."""
     state_0, state_1 = model.labels.states
     observable_0, observable_1 = model.labels.observables
     columns = (
@@ -82,68 +82,51 @@ def prefix_dataframe(analysis: SequenceAnalysis, model: BinaryHMM) -> pd.DataFra
         f"Posterior {state_1}",
         f"Next-hidden {state_0}",
         f"Next-hidden {state_1}",
+        "Posterior status",
     )
-    rows: tuple[VisibleRow, ...] = tuple(
+    rows = tuple(
         _visible_row(analysis, model, depth) for depth in range(len(analysis.rows))
     )
     return pd.DataFrame.from_records(rows, columns=columns)
 
 
+def format_information(value: float) -> str:
+    """Format finite and impossible-event information for visible display."""
+    return "infinity" if math.isinf(value) else format_ui_decimal(value)
+
+
 def _visible_row(
-    analysis: SequenceAnalysis,
-    model: BinaryHMM,
-    depth: int,
+    analysis: SequenceAnalysis, model: BinaryHMM, depth: int
 ) -> VisibleRow:
     row = analysis.rows[depth]
     probability_0, probability_1 = float_values(row.predictive)
     next_hidden_0, next_hidden_1 = float_values(row.next_hidden)
     posterior = float_values(row.posterior) if row.posterior is not None else None
-    observed_symbol = (
-        model.labels.observables[row.observed_index]
-        if row.observed_index is not None
-        else "Before first observation"
+    observed = (
+        None
+        if row.observed_index is None
+        else model.labels.observables[row.observed_index]
     )
-    posterior_unavailable = "Unavailable before observation"
     return (
         row.depth,
         _context(analysis, model, depth),
-        observed_symbol,
-        format_decimal(probability_0),
-        format_decimal(probability_1),
+        observed,
+        probability_0,
+        probability_1,
         model.labels.observables[row.predicted_index],
-        format_decimal(row.entropy_bits),
-        _information_text(surprisal(probability_0)),
-        _information_text(surprisal(probability_1)),
-        (
-            format_decimal(posterior[0])
-            if posterior is not None
-            else posterior_unavailable
-        ),
-        (
-            format_decimal(posterior[1])
-            if posterior is not None
-            else posterior_unavailable
-        ),
-        format_decimal(next_hidden_0),
-        format_decimal(next_hidden_1),
+        row.entropy_bits,
+        surprisal(probability_0),
+        surprisal(probability_1),
+        None if posterior is None else posterior[0],
+        None if posterior is None else posterior[1],
+        next_hidden_0,
+        next_hidden_1,
+        "Unavailable before observation" if posterior is None else "Available",
     )
 
 
-def _context(
-    analysis: SequenceAnalysis,
-    model: BinaryHMM,
-    depth: int,
-) -> str:
+def _context(analysis: SequenceAnalysis, model: BinaryHMM, depth: int) -> str:
     labels = tuple(
         model.labels.observables[index] for index in analysis.sequence[:depth]
     )
     return ", ".join(labels) if labels else "(empty prefix)"
-
-
-def _information_text(value: float) -> str:
-    return "Infinite (zero probability)" if math.isinf(value) else format_decimal(value)
-
-
-def format_information(value: float) -> str:
-    """Format finite or impossible-event information for visible display."""
-    return _information_text(value)
