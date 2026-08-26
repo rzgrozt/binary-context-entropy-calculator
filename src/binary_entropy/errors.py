@@ -1,6 +1,7 @@
 """Typed application errors."""
 
 from dataclasses import FrozenInstanceError, dataclass
+from enum import StrEnum
 from types import TracebackType
 from typing import override
 
@@ -182,3 +183,25 @@ class _NumericalInvariantBaseError(BinaryEntropyError):
 
 class NumericalInvariantError(_FrozenMetadataError, _NumericalInvariantBaseError):
     """A calculated value violates a mathematical output invariant."""
+
+
+class DatasetErrorCode(StrEnum):
+    """Closed set of canonical dataset validation failures."""
+
+    EMPTY_DATASET = "empty_dataset"
+    INVALID_RECORD_ID = "invalid_record_id"
+    DUPLICATE_RECORD_ID = "duplicate_record_id"
+
+
+@dataclass(frozen=True, slots=True)
+class _DatasetValidationBaseError(BinaryEntropyError):
+    code: DatasetErrorCode
+    value: str
+
+    @override
+    def __str__(self) -> str:
+        return f"dataset validation failed ({self.code.value}): {self.value!r}"
+
+
+class DatasetValidationError(_FrozenMetadataError, _DatasetValidationBaseError):
+    """Canonical independent-record dataset invariants were violated."""
