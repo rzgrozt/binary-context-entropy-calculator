@@ -205,3 +205,69 @@ class _DatasetValidationBaseError(BinaryEntropyError):
 
 class DatasetValidationError(_FrozenMetadataError, _DatasetValidationBaseError):
     """Canonical independent-record dataset invariants were violated."""
+
+
+class BatchParseErrorCode(StrEnum):
+    """Closed set of batch input boundary failures."""
+
+    INVALID_UTF8 = "invalid_utf8"
+    INVALID_COLUMNS = "invalid_columns"
+    MISSING_COLUMN = "missing_column"
+    MALFORMED_ROW = "malformed_row"
+    INVALID_SEQUENCE = "invalid_sequence"
+    INVALID_TARGET = "invalid_target"
+    INVALID_RECORD_ID = "invalid_record_id"
+    DUPLICATE_RECORD_ID = "duplicate_record_id"
+
+
+@dataclass(frozen=True, slots=True)
+class BatchRecordIssue:
+    """One recoverable invalid-record diagnostic at a batch boundary."""
+
+    row: int
+    record_id: str | None
+    token_position: int | None
+    code: BatchParseErrorCode
+    detail: str
+
+    @override
+    def __str__(self) -> str:
+        record = "<unavailable>" if self.record_id is None else repr(self.record_id)
+        token = "" if self.token_position is None else f", token {self.token_position}"
+        return (
+            f"row {self.row}, record {record}{token} ({self.code.value}): {self.detail}"
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class _BatchRecordBaseError(BinaryEntropyError):
+    issues: tuple[BatchRecordIssue, ...]
+
+    @override
+    def __str__(self) -> str:
+        issue_label = "issue" if len(self.issues) == 1 else "issues"
+        rendered_issues = "\n".join(f"- {issue}" for issue in self.issues)
+        return (
+            f"batch parse failed with {len(self.issues)} record {issue_label}:\n"
+            f"{rendered_issues}"
+        )
+
+
+class BatchRecordError(_FrozenMetadataError, _BatchRecordBaseError):
+    """All recoverable invalid-record diagnostics from one atomic batch parse."""
+
+
+@dataclass(frozen=True, slots=True)
+class _BatchParseBaseError(BinaryEntropyError):
+    code: BatchParseErrorCode
+    detail: str
+    row: int | None = None
+
+    @override
+    def __str__(self) -> str:
+        location = "" if self.row is None else f" at CSV row {self.row}"
+        return f"batch parse failed ({self.code.value}){location}: {self.detail}"
+
+
+class BatchParseError(_FrozenMetadataError, _BatchParseBaseError):
+    """Manual, TXT, or CSV batch input could not be parsed atomically."""
