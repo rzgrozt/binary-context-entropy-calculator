@@ -19,19 +19,35 @@ from binary_entropy.errors import (
 from binary_entropy.markov_types import MarkovPredictionMode, MarkovResultScope
 from binary_entropy.parsing import parse_sequence
 from binary_entropy.records import SequenceDataset, SequenceRecord
+from binary_entropy.ui.markov_state import ESTIMATION_OPTIONS as _ESTIMATION_OPTIONS
+from binary_entropy.ui.markov_state import MarkovControls as _MarkovControls
+from binary_entropy.ui.markov_state import (
+    MarkovEstimationChoice as _MarkovEstimationChoice,
+)
+from binary_entropy.ui.markov_state import MarkovWorkflow as _MarkovWorkflow
+from binary_entropy.ui.markov_state import VMMSmoothingChoice as _VMMSmoothingChoice
 from binary_entropy.ui.state import (
     ActualTargetChoice,
     ModelForm,
     actual_target_index,
     default_form,
 )
+from binary_entropy.vmm_types import VMMConfig
 from binary_entropy.workbench import (
     HMMAnalysisRequest,
     MarkovAnalysisRequest,
     ShannonAnalysisRequest,
+    VMMAnalysisRequest,
+    WorkbenchRequest,
     WorkbenchResult,
     analyze_dataset,
 )
+
+ESTIMATION_OPTIONS: Final = _ESTIMATION_OPTIONS
+MarkovControls = _MarkovControls
+MarkovEstimationChoice = _MarkovEstimationChoice
+MarkovWorkflow = _MarkovWorkflow
+VMMSmoothingChoice = _VMMSmoothingChoice
 
 
 class MethodChoice(StrEnum):
@@ -51,37 +67,8 @@ class InputMode(StrEnum):
     CSV = "CSV upload"
 
 
-class MarkovEstimationChoice(StrEnum):
-    """Visible Markov estimation choices."""
-
-    MAXIMUM_LIKELIHOOD = "Maximum likelihood"
-    LAPLACE = "Laplace/add-one smoothing"
-    CUSTOM = "Custom additive smoothing alpha"
-
-
 METHOD_OPTIONS: Final = tuple(MethodChoice)
 INPUT_MODE_OPTIONS: Final = tuple(InputMode)
-ESTIMATION_OPTIONS: Final = tuple(MarkovEstimationChoice)
-
-
-@dataclass(frozen=True, slots=True)
-class MarkovControls:
-    """All editable first-order Markov controls."""
-
-    estimation: MarkovEstimationChoice
-    custom_alpha: float
-    prediction_mode: MarkovPredictionMode
-    result_scope: MarkovResultScope
-
-    def smoothing_alpha(self) -> float:
-        """Map the visible estimator to the core additive alpha."""
-        match self.estimation:
-            case MarkovEstimationChoice.MAXIMUM_LIKELIHOOD:
-                return 0.0
-            case MarkovEstimationChoice.LAPLACE:
-                return 1.0
-            case MarkovEstimationChoice.CUSTOM:
-                return self.custom_alpha
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,9 +99,9 @@ class WorkbenchForm:
         shared = self.intake
         match method:
             case MethodChoice.MARKOV:
-                specific: (
-                    MarkovControls | ModelForm | tuple[ModelForm, str] | None
-                ) = self.markov
+                specific: MarkovControls | ModelForm | tuple[ModelForm, str] | None = (
+                    self.markov
+                )
             case MethodChoice.HMM:
                 specific = (self.hmm_model, self.preset_name)
             case MethodChoice.SHANNON:
@@ -256,13 +243,24 @@ def _calculate_method(
     dataset: SequenceDataset,
     method: MethodChoice,
 ) -> WorkbenchResult:
+    request: WorkbenchRequest
     match method:
         case MethodChoice.MARKOV:
-            request = MarkovAnalysisRequest(
-                smoothing_alpha=form.markov.smoothing_alpha(),
-                prediction_mode=form.markov.prediction_mode,
-                result_scope=form.markov.result_scope,
-            )
+            match form.markov.workflow:
+                case MarkovWorkflow.VMM:
+                    request = VMMAnalysisRequest(
+                        config=VMMConfig(
+                            smoothing=form.markov.vmm_smoothing(),
+                            minimum_support=form.markov.minimum_support,
+                        ),
+                        result_scope=form.markov.vmm_result_scope(),
+                    )
+                case MarkovWorkflow.FIRST_ORDER:
+                    request = MarkovAnalysisRequest(
+                        smoothing_alpha=form.markov.smoothing_alpha(),
+                        prediction_mode=form.markov.prediction_mode,
+                        result_scope=form.markov.result_scope,
+                    )
         case MethodChoice.HMM:
             model_form = replace(
                 form.hmm_model,
