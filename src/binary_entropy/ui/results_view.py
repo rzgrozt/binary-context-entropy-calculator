@@ -16,12 +16,16 @@ from binary_entropy.ui.session import (
 from binary_entropy.ui.shannon_results import render_shannon_result
 from binary_entropy.ui.summary import render_hmm_result
 from binary_entropy.ui.text import joined_text
+from binary_entropy.ui.tokens import format_ui_decimal
+from binary_entropy.ui.vmm_view import render_vmm_result
 from binary_entropy.ui.workbench_state import (
+    MarkovWorkflow,
     MethodCalculationFailure,
     MethodChoice,
     WorkbenchCalculationSuccess,
     WorkbenchForm,
 )
+from binary_entropy.vmm_types import VMMAnalysis
 from binary_entropy.workbench import WorkbenchResult
 
 
@@ -106,6 +110,8 @@ def _render_method_result(
     success: WorkbenchCalculationSuccess,
 ) -> None:
     match result:
+        case VMMAnalysis() as vmm:
+            render_vmm_result(vmm, success.dataset)
         case MarkovBatchAnalysis() as markov:
             render_markov_result(markov)
         case HMMBatchAnalysis() as hmm:
@@ -120,6 +126,8 @@ def _render_method_result(
 
 def _method_for_result(result: WorkbenchResult) -> MethodChoice:
     match result:
+        case VMMAnalysis():
+            return MethodChoice.MARKOV
         case MarkovBatchAnalysis():
             return MethodChoice.MARKOV
         case HMMBatchAnalysis():
@@ -149,6 +157,23 @@ def _render_reproducibility(
     success: WorkbenchCalculationSuccess,
 ) -> None:
     selected_methods = ", ".join(method.value for method in form.methods)
+    markov_details: tuple[str, ...] = ()
+    if MethodChoice.MARKOV in form.methods:
+        match form.markov.workflow:
+            case MarkovWorkflow.VMM:
+                smoothing = form.markov.vmm_smoothing()
+                markov_details = (
+                    f"- Markov workflow: {form.markov.workflow.value}",
+                    f"- VMM smoothing: {form.markov.vmm_smoothing_choice.value}",
+                    f"- VMM alpha: {format_ui_decimal(smoothing.alpha)}",
+                    f"- VMM minimum context support: {form.markov.minimum_support}",
+                    "- VMM backoff: deepest supported suffix, then shorter suffixes",
+                )
+            case MarkovWorkflow.FIRST_ORDER:
+                markov_details = (
+                    f"- Markov workflow: {form.markov.workflow.value}",
+                    "- Markov order: 1",
+                )
     with st.expander("Reproducibility details"):
         _ = st.markdown(
             "\n".join(
@@ -162,7 +187,7 @@ def _render_reproducibility(
                             "12 decimal places",
                         )
                     ),
-                    "- Markov order: 1",
+                    *markov_details,
                     "- Record ordering: deterministic submitted order",
                     joined_text(
                         (
