@@ -9,6 +9,8 @@ from binary_entropy.methods.hmm import HMMBatchAnalysis
 from binary_entropy.methods.shannon import ShannonBatchAnalysis
 from binary_entropy.ui.text import joined_text
 from binary_entropy.ui.tokens import format_ui_decimal
+from binary_entropy.ui.vmm_results import vmm_prediction_label
+from binary_entropy.vmm_types import VMMAnalysis, VMMResultScope
 from binary_entropy.workbench import WorkbenchResult
 
 type ComparisonRow = tuple[str, ...]
@@ -70,6 +72,26 @@ def _comparison_row(
     record_index: int,
 ) -> ComparisonRow:
     match result:
+        case VMMAnalysis(records=records, result_scope=result_scope):
+            record = records[record_index]
+            target = record.target_assessment
+            match result_scope:
+                case VMMResultScope.POOLED:
+                    scope = "Pooled fit; per-sequence prediction"
+                case VMMResultScope.PER_SEQUENCE:
+                    scope = "Per-sequence fit and prediction"
+            return (
+                record.sequence_id,
+                "Variable-order Markov",
+                scope,
+                _display(record.probability_a),
+                _display(record.probability_b),
+                vmm_prediction_label(record, labels),
+                _display(None if target is None else target.probability),
+                _display(None if target is None else target.surprisal_bits),
+                _display(record.predictive_entropy_bits),
+                "N/A",
+            )
         case MarkovBatchAnalysis(records=records, result_scope=result_scope):
             record = records[record_index]
             final = record.rows[-1]

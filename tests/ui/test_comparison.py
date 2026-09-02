@@ -1,16 +1,30 @@
+from dataclasses import dataclass
+
 import pytest
 
 from binary_entropy.domain import BinaryHMM, BinaryLabels
 from binary_entropy.markov_types import MarkovResultScope
 from binary_entropy.records import SequenceDataset, SequenceRecord
 from binary_entropy.ui.comparison import comparison_dataframe
+from binary_entropy.vmm_types import VMMConfig, VMMResultScope
 from binary_entropy.workbench import (
     HMMAnalysisRequest,
     MarkovAnalysisRequest,
     ShannonAnalysisRequest,
+    VMMAnalysisRequest,
     WorkbenchResult,
     compare_methods,
 )
+
+
+@dataclass(frozen=True, slots=True)
+class VMMComparisonCase:
+    scope: VMMResultScope
+    scope_label: str
+    probability_a: str
+    probability_b: str
+    prediction: str
+    entropy: str
 
 
 def _batch_inputs() -> tuple[SequenceDataset, BinaryHMM]:
@@ -167,3 +181,54 @@ def test_comparison_dataframe_when_markov_fit_is_per_sequence_labels_scope() -> 
         "Configured model; per-sequence filtering",
         "Per-sequence descriptive",
     )
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        VMMComparisonCase(
+            scope=VMMResultScope.POOLED,
+            scope_label="Pooled fit; per-sequence prediction",
+            probability_a="0.500",
+            probability_b="0.500",
+            prediction="Tie",
+            entropy="1.000",
+        ),
+        VMMComparisonCase(
+            scope=VMMResultScope.PER_SEQUENCE,
+            scope_label="Per-sequence fit and prediction",
+            probability_a="0.625",
+            probability_b="0.375",
+            prediction="A",
+            entropy="0.954",
+        ),
+    ],
+)
+def test_comparison_dataframe_when_vmm_is_present_maps_predictive_fields(
+    case: VMMComparisonCase,
+) -> None:
+    # Given
+    dataset, _ = _batch_inputs()
+    results = compare_methods(
+        dataset,
+        (
+                VMMAnalysisRequest(
+                    config=VMMConfig(minimum_support=2),
+                    result_scope=case.scope,
+            ),
+        ),
+    ).results
+
+    # When
+    frame = comparison_dataframe(results, ("A", "B"))
+
+    # Then
+    assert frame["Method"].tolist() == [
+        "Variable-order Markov",
+        "Variable-order Markov",
+    ]
+    assert frame["Scope"].tolist() == [case.scope_label, case.scope_label]
+    assert frame.loc[0, "P(next A)"] == case.probability_a
+    assert frame.loc[0, "P(next B)"] == case.probability_b
+    assert frame.loc[0, "Prediction"] == case.prediction
+    assert frame.loc[0, "Predictive entropy (bits)"] == case.entropy
