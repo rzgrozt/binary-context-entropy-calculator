@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 import plotly.graph_objects as go
 
 from binary_entropy.markov_types import MarkovBatchAnalysis
@@ -15,6 +17,7 @@ from binary_entropy.ui.state import (
     default_form,
 )
 from binary_entropy.ui.workbench_state import (
+    MarkovWorkflow,
     WorkbenchCalculationSuccess,
     calculate_workbench,
     default_workbench_form,
@@ -52,7 +55,12 @@ def test_markov_figures_when_using_demo_keep_raw_values_and_three_decimal_views(
     None
 ):
     # Given
-    outcome = calculate_workbench(default_workbench_form())
+    form = default_workbench_form()
+    first_order = replace(
+        form,
+        markov=replace(form.markov, workflow=MarkovWorkflow.FIRST_ORDER),
+    )
+    outcome = calculate_workbench(first_order)
     assert isinstance(outcome, WorkbenchCalculationSuccess)
     analysis = outcome.results[0]
     assert isinstance(analysis, MarkovBatchAnalysis)
