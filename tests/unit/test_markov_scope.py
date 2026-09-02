@@ -1,18 +1,14 @@
 import numpy as np
-import pytest
 
 from binary_entropy.domain import BinaryLabels
 from binary_entropy.markov_types import (
-    MarkovBatchAnalysis,
     MarkovPredictionMode,
     MarkovResultScope,
 )
-from binary_entropy.methods.hmm import HMMBatchAnalysis
 from binary_entropy.methods.markov import (
     analyze_markov,
     analyze_markov_per_sequence,
 )
-from binary_entropy.methods.shannon import ShannonBatchAnalysis
 from binary_entropy.records import SequenceDataset, SequenceRecord
 from binary_entropy.workbench import MarkovAnalysisRequest, analyze_dataset
 
@@ -126,8 +122,4 @@ def test_analyze_dataset_when_per_sequence_scope_requested_routes_independent_fi
     result = analyze_dataset(dataset, request)
 
     # Then
-    match result:
-        case MarkovBatchAnalysis(result_scope=result_scope):
-            assert result_scope is MarkovResultScope.PER_SEQUENCE
-        case HMMBatchAnalysis() | ShannonBatchAnalysis():
-            pytest.fail("per-sequence Markov request routed to a different method")
+    assert result.result_scope is MarkovResultScope.PER_SEQUENCE

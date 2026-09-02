@@ -1,6 +1,15 @@
 import numpy as np
 import pytest
 
+from binary_entropy import (
+    KTSmoothing,
+    VMMAnalysis,
+    VMMAnalysisRequest,
+    VMMConfig,
+    VMMResultScope,
+    analyze_vmm,
+    analyze_vmm_per_sequence,
+)
 from binary_entropy.analysis import analyze_sequence
 from binary_entropy.domain import BinaryLabels, ObservableIndex
 from binary_entropy.markov_types import MarkovBatchAnalysis, MarkovPredictionMode
@@ -141,6 +150,41 @@ def test_analyze_hmm_when_target_changes_only_external_assessment_changes() -> N
     )
 
 
+def test_analyze_dataset_when_vmm_scope_is_pooled_routes_to_pooled_analysis() -> None:
+    # Given
+    dataset = _dataset(((0, 0, 1), (1, 0, 1)))
+    config = VMMConfig(smoothing=KTSmoothing(), minimum_support=2)
+
+    # When
+    result = analyze_dataset(
+        dataset,
+        VMMAnalysisRequest(config=config, result_scope=VMMResultScope.POOLED),
+    )
+
+    # Then
+    assert isinstance(result, VMMAnalysis)
+    assert result == analyze_vmm(dataset, config)
+
+
+def test_analyze_dataset_when_vmm_scope_is_per_sequence_routes_independently() -> None:
+    # Given
+    dataset = _dataset(((0, 0, 1), (1, 0, 1)))
+    config = VMMConfig(smoothing=KTSmoothing(), minimum_support=2)
+
+    # When
+    result = analyze_dataset(
+        dataset,
+        VMMAnalysisRequest(
+            config=config,
+            result_scope=VMMResultScope.PER_SEQUENCE,
+        ),
+    )
+
+    # Then
+    assert isinstance(result, VMMAnalysis)
+    assert result == analyze_vmm_per_sequence(dataset, config)
+
+
 @pytest.mark.parametrize(
     ("analysis_request", "expected_method", "expected_type"),
     [
@@ -154,6 +198,11 @@ def test_analyze_hmm_when_target_changes_only_external_assessment_changes() -> N
             MarkovBatchAnalysis,
         ),
         (
+            VMMAnalysisRequest(VMMConfig(), VMMResultScope.POOLED),
+            AnalysisMethod.VMM,
+            VMMAnalysis,
+        ),
+        (
             ShannonAnalysisRequest(),
             AnalysisMethod.OBSERVED_SHANNON,
             ShannonBatchAnalysis,
@@ -163,9 +212,12 @@ def test_analyze_hmm_when_target_changes_only_external_assessment_changes() -> N
 def test_analyze_dataset_when_request_is_typed_routes_matching_method(
     analysis_request: HMMAnalysisRequest
     | MarkovAnalysisRequest
+    | VMMAnalysisRequest
     | ShannonAnalysisRequest,
     expected_method: AnalysisMethod,
-    expected_type: type[HMMBatchAnalysis | MarkovBatchAnalysis | ShannonBatchAnalysis],
+    expected_type: type[
+        HMMBatchAnalysis | MarkovBatchAnalysis | ShannonBatchAnalysis | VMMAnalysis
+    ],
 ) -> None:
     # Given
     dataset = _dataset(((0, 1, 0),))

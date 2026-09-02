@@ -3,6 +3,7 @@
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import overload
 
 from binary_entropy.domain import BinaryHMM
 from binary_entropy.markov_types import (
@@ -13,7 +14,9 @@ from binary_entropy.markov_types import (
 from binary_entropy.methods.hmm import HMMBatchAnalysis, analyze_hmm
 from binary_entropy.methods.markov import analyze_markov, analyze_markov_per_sequence
 from binary_entropy.methods.shannon import ShannonBatchAnalysis, analyze_shannon
+from binary_entropy.methods.vmm import analyze_vmm, analyze_vmm_per_sequence
 from binary_entropy.records import SequenceDataset
+from binary_entropy.vmm_types import VMMAnalysis, VMMConfig, VMMResultScope
 
 
 class AnalysisMethod(StrEnum):
@@ -22,6 +25,7 @@ class AnalysisMethod(StrEnum):
     HMM = "hmm"
     MARKOV = "markov"
     OBSERVED_SHANNON = "observed_shannon"
+    VMM = "vmm"
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,6 +47,15 @@ class MarkovAnalysisRequest:
 
 
 @dataclass(frozen=True, slots=True)
+class VMMAnalysisRequest:
+    """Request one variable-order configuration and result scope."""
+
+    config: VMMConfig
+    result_scope: VMMResultScope
+    method: AnalysisMethod = field(default=AnalysisMethod.VMM, init=False)
+
+
+@dataclass(frozen=True, slots=True)
 class ShannonAnalysisRequest:
     """Request descriptive observed-symbol entropy only."""
 
@@ -53,9 +66,14 @@ class ShannonAnalysisRequest:
 
 
 type WorkbenchRequest = (
-    HMMAnalysisRequest | MarkovAnalysisRequest | ShannonAnalysisRequest
+    HMMAnalysisRequest
+    | MarkovAnalysisRequest
+    | ShannonAnalysisRequest
+    | VMMAnalysisRequest
 )
-type WorkbenchResult = HMMBatchAnalysis | MarkovBatchAnalysis | ShannonBatchAnalysis
+type WorkbenchResult = (
+    HMMBatchAnalysis | MarkovBatchAnalysis | ShannonBatchAnalysis | VMMAnalysis
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,6 +81,34 @@ class MethodComparison:
     """Ordered labeled results for direct method comparison."""
 
     results: tuple[WorkbenchResult, ...]
+
+
+@overload
+def analyze_dataset(
+    dataset: SequenceDataset,
+    request: HMMAnalysisRequest,
+) -> HMMBatchAnalysis: ...
+
+
+@overload
+def analyze_dataset(
+    dataset: SequenceDataset,
+    request: MarkovAnalysisRequest,
+) -> MarkovBatchAnalysis: ...
+
+
+@overload
+def analyze_dataset(
+    dataset: SequenceDataset,
+    request: ShannonAnalysisRequest,
+) -> ShannonBatchAnalysis: ...
+
+
+@overload
+def analyze_dataset(
+    dataset: SequenceDataset,
+    request: VMMAnalysisRequest,
+) -> VMMAnalysis: ...
 
 
 def analyze_dataset(
@@ -87,6 +133,12 @@ def analyze_dataset(
                         smoothing_alpha,
                         prediction_mode,
                     )
+        case VMMAnalysisRequest(config=config, result_scope=result_scope):
+            match result_scope:
+                case VMMResultScope.POOLED:
+                    return analyze_vmm(dataset, config)
+                case VMMResultScope.PER_SEQUENCE:
+                    return analyze_vmm_per_sequence(dataset, config)
         case ShannonAnalysisRequest():
             return analyze_shannon(dataset)
 
