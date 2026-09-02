@@ -20,17 +20,17 @@ The interface must not imply that a descriptive statistic is a next target predi
 
 ### 1.1 Included workbench capabilities
 
-1. Markov Chain is selected by default, with First-order Markov as its initial workflow.
+1. Markov Chain is selected by default, with Variable-order Markov as its initial workflow and First-order Markov available as a baseline.
 2. Users may select Hidden Markov Model and Observed Shannon Entropy alongside Markov Chain. Multiple methods run and appear together.
 3. Method specific controls appear only for selected methods.
 4. One shared intake accepts pasted single sequences, pasted batches, TXT uploads, and CSV uploads.
 5. Results distinguish pooled and per sequence views, compare selected methods, and retain method specific sections.
 6. Results include visual summaries, exact value tables, charts, warnings, reproducibility details, and raw exports.
-7. An optional evaluation dataset or evaluation target is assessed only against an already computed final prediction. It is not an input to fitting, selection, pooling, or prediction.
+7. An optional evaluation target is assessed only against an already computed final prediction. It is not an input to fitting, selection, pooling, or prediction.
 
 ### 1.2 Explicit exclusions
 
-This contract does not add simulation settings, unlocked HMM probability rows, marketing content, decorative media, or custom interaction that duplicates a usable native Streamlit control. Markov controls are limited to the workflows, estimation choices, evidence states, and explicit backoff defined in Section 2.1.1.
+This contract does not add simulation settings, unlocked HMM probability rows, marketing content, decorative media, or custom interaction that duplicates a usable native Streamlit control. Markov controls are limited to the workflows, estimation choices, and evidence states defined in Section 2.1.1. Suffix backoff is an automatic visible outcome, not a control.
 
 ### 1.3 Voice and content
 
@@ -47,7 +47,7 @@ This contract does not add simulation settings, unlocked HMM probability rows, m
 
 | Method | Selection and controls | Result meaning |
 | --- | --- | --- |
-| Markov Chain | Selected by default. Its nested, non-top-level workflows are First-order Markov, Higher-order Markov, and Variable-order context analysis. First-order Markov is the initial overall default. Variable-order context analysis is the recommended default when an advanced workflow is chosen. Show only the controls and estimation status defined in Section 2.1.1. | A next-symbol distribution, entropy, and optional target evaluation conditional on the selected observed context rule and available estimate. |
+| Markov Chain | Selected by default. Its nested, non-top-level workflows are Variable-order Markov and First-order Markov. Variable-order Markov is the initial workflow; First-order Markov remains available as a baseline. Show only the controls and estimation status defined in Section 2.1.1. | A next-symbol distribution, entropy, and optional target evaluation conditional on the selected observed context rule and available estimate. |
 | Hidden Markov Model | Optional. Reveal the two-state HMM labels, initial distribution, transition matrix, emission matrix, and preset controls only when selected. | A next observable prediction and entropy conditional on the configured HMM parameters and consumed prefix. |
 | Observed Shannon Entropy | Optional. It needs no model editor. | Observed symbol composition entropy. It is descriptive, not a next target prediction. |
 
@@ -57,15 +57,14 @@ The selection control is a labeled native multiselect or equivalent checkable co
 
 Markov Chain exposes exactly these nested workflows, not additional top-level methods:
 
-1. **First-order Markov.** The context is the immediately preceding symbol. This is the initial overall default.
-2. **Higher-order Markov.** The context is the previous k symbols for a user-selected fixed positive integer k. The control labels k as context depth and never calls it whole-sequence unless the user has selected the full available sequence as the context.
-3. **Variable-order context analysis.** This is the recommended default advanced workflow. It evaluates progressively longer preceding contexts up to the available prefix depth and reports the evidence and availability at each depth. It does not assume that a longer context improves prediction, lowers entropy, raises surprisal, or produces a monotonic trend.
+1. **Variable-order Markov.** This is the initial predictive workflow. It evaluates progressively longer preceding contexts from order 0 through the available suffix depth, reports evidence and availability at each depth, and uses the deepest context that meets the configured minimum support. It does not assume that a longer context improves prediction, lowers entropy, raises surprisal, or produces a monotonic trend.
+2. **First-order Markov.** This baseline uses only the immediately preceding symbol.
 
-The training dataset is the only dataset that fits context counts, selects an available context, determines support or sparsity, estimates probabilities, or establishes a backoff result. Each submitted record is independent: contexts and transitions never cross a record boundary. An optional separate evaluation dataset is held out from fitting and contains no contribution to counts, smoothing denominators, context selection, pooling, or backoff. When training records are also evaluated, every affected table, chart, notice, and export labels the result `In-sample evaluation, not held out`.
+The training dataset is the only dataset that fits context counts, selects an available context, determines support or sparsity, estimates probabilities, or establishes a backoff result. Each submitted record is independent: contexts and transitions never cross a record boundary. An optional target supplied with a training record is assessed only after final prediction and every affected table, chart, notice, and export labels the result `In-sample evaluation, not held out`.
 
-For each eligible context, MLE uses `P(next = x | context) = count(context, x) / occurrence_count(context)`. Additive smoothing uses the selected nonnegative alpha: `P(next = x | context) = (count(context, x) + alpha) / (occurrence_count(context) + 2 alpha)`. Alpha, including alpha zero for MLE, is visible in controls, results, reproducibility details, and exports. An unseen context with MLE has the exact unavailable text `MLE unavailable: unseen context has no occurrences in the training dataset.` It never receives an implicit 0.5 probability or hidden smoothing.
+For each eligible context, KT smoothing is the default and fixes `alpha = 0.5`; MLE fixes `alpha = 0` and uses `P(next = x | context) = count(context, x) / occurrence_count(context)`; custom additive smoothing requires a positive alpha and uses `P(next = x | context) = (count(context, x) + alpha) / (occurrence_count(context) + 2 alpha)`. The estimator and alpha are visible in controls, results, reproducibility details, and exports. An unseen context with MLE has the exact unavailable text `MLE unavailable: unseen context has no occurrences in the training dataset.` It never receives an implicit 0.5 probability or hidden smoothing.
 
-Each context evidence row exposes its occurrence count, next-symbol A count, next-symbol B count, support status, and sparse status. Support and sparse criteria are named with their configured threshold or rule, rather than inferred from styling. Optional explicit suffix backoff may be selected for Higher-order Markov or Variable-order context analysis. When used, each affected result shows requested depth, actual depth, and the reason the requested context was unavailable or insufficiently supported. Without that selected option, unavailable requested contexts remain unavailable. Backoff is never silent, and no arbitrary order cap is imposed beyond the available preceding symbols and any user-selected fixed k.
+Each context evidence row exposes its occurrence count, next-symbol A count, next-symbol B count, support status, and sparse status. Support and sparse criteria are named with their configured threshold or rule, rather than inferred from styling. Variable-order Markov backs off from an unavailable or insufficiently supported suffix to the next shorter supported suffix. Each affected result shows the effective depth, context used, and evidence status at every examined depth. Backoff is never silent, and no arbitrary order cap is imposed beyond the available preceding symbols.
 
 Markov predictive entropy is the binary entropy of the fitted next-symbol distribution for the displayed context. Target surprisal is `-log2(P(observed target | displayed context))` and is available only for a supplied target in a predictive result. A zero predicted target probability is shown as an explicit infinite-surprisal condition, never as an ordinary finite value. These conditional values are not generalized stationary-distribution or entropy-rate claims.
 
@@ -93,7 +92,7 @@ One Data intake primitive accepts all supported training-data paths without chan
 3. A TXT upload containing the same documented text record syntax.
 4. A CSV upload containing the documented sequence identifier and sequence fields, with an optional evaluation target field.
 
-An optional Evaluation data intake uses the same record model and validation rules, but is visibly separate from the Training data intake. It may contain sequence identifiers, sequences, and documented targets. Evaluation records are assessed only against a model already fit from Training data. A target supplied with a training record is an in-sample target assessment and is labeled `In-sample evaluation, not held out`; it is never described as held out.
+There is no separate evaluation-data intake. A target supplied with a training record is an in-sample target assessment and is labeled `In-sample evaluation, not held out`; it is never described as held out.
 
 Visible help defines delimiters, record boundaries, CSV column names, accepted symbol labels, and whether positions begin at zero or one. The parser reports the sequence identifier, token position, and reason for every invalid record without silently dropping, repairing, or reordering data.
 
@@ -103,7 +102,7 @@ Batch results always distinguish:
 2. Pooled results, only when the method’s pooling rule is mathematically defined and explicitly named.
 3. Excluded or invalid records, with reasons and no contribution to a pooled result.
 
-An evaluation target is optional and separate from the observed sequence. It may appear per sequence when supplied by the documented input format. It is evaluated only after the selected method has produced that sequence’s final prediction. It must not train, fit, choose, score, alter, or validate a method. Separate evaluation data never contributes to fit. When a selected method has no predictive distribution, such as Observed Shannon Entropy, the target assessment is shown as `Not applicable`, with a short reason.
+An evaluation target is optional and separate from the observed sequence. It may appear per sequence when supplied by the documented input format. It is evaluated only after the selected method has produced that sequence’s final prediction. It must not train, fit, choose, score, alter, or validate a method. It is an in-sample assessment, not held-out evaluation. When a selected method has no predictive distribution, such as Observed Shannon Entropy, the target assessment is shown as `Not applicable`, with a short reason.
 
 ### 2.5 Numeric presentation and exports
 
@@ -222,7 +221,7 @@ Use a maximum of the three defined comparison series at once. Distinguish method
 The browser document is a single research document in this source order:
 
 1. Header with title, purpose, active method summary, and optional version provenance.
-2. Left configuration column containing Method selection, method specific controls, Data intake, evaluation target, validation, and the explicit calculate action.
+2. Left configuration column containing Method selection, method specific controls, Data intake, optional evaluation target, validation, and the explicit calculate action.
 3. Results column containing status, scope switch, comparison summary, method sections, exact tables, charts, exports, and reproducibility details.
 4. Supporting help expanders for input syntax, definitions, method assumptions, and export precision.
 
@@ -268,7 +267,7 @@ Streamlit does not provide a supported sticky side column API. `st.bottom` is a 
 
 **Anatomy:** visible group label, concise explanation, native multiselect or checkable controls, selected method summary, and method specific controls below it.
 
-**States:** Markov Chain is selected initially with First-order Markov active. Each selected method has a visible check state. A method with invalid controls remains selected but cannot produce a valid result. Deselecting a method removes only its controls and result availability. Changing selection marks comparison, result sections, charts, exact tables, and exports stale until recalculation.
+**States:** Markov Chain is selected initially with Variable-order Markov active. Each selected method has a visible check state. A method with invalid controls remains selected but cannot produce a valid result. Deselecting a method removes only its controls and result availability. Changing selection marks comparison, result sections, charts, exact tables, and exports stale until recalculation.
 
 ### 5.3 Labeled scientific field
 
@@ -282,7 +281,7 @@ Streamlit does not provide a supported sticky side column API. `st.bottom` is a 
 
 **Use for:** single input, batch input, TXT upload, CSV upload, parsed record review, and file validation.
 
-**Anatomy:** panel heading identifies either Training data or optional Evaluation data, input mode guidance, text area or native uploader, documented accepted formats, parsed count, accepted and rejected record summary, and local errors. The same validation language applies across all supported paths. Evaluation data is visually and programmatically distinct from Training data.
+**Anatomy:** panel heading identifies Training data, input mode guidance, text area or native uploader, documented accepted formats, parsed count, accepted and rejected record summary, and local errors. The same validation language applies across all supported paths. An optional target belongs to its training record and is visibly labeled as in-sample assessment.
 
 **States:** before submission, show documented examples without treating them as data. A valid batch shows accepted sequence identifiers in deterministic source order. Invalid records remain visible with their identifier or line and error. Upload success confirms parsing only, not calculation. Changing text, file, or parsed records makes all dependent results stale.
 
@@ -290,9 +289,9 @@ Streamlit does not provide a supported sticky side column API. `st.bottom` is a 
 
 **Use for:** controls belonging to one selected method.
 
-**Anatomy:** panel heading, one sentence about the method’s assumption, only the inputs that method needs, validation summary, and method specific warning area. Markov Chain shows its workflow selector beneath the method heading: First-order Markov, Higher-order Markov, and Variable-order context analysis. First-order Markov is selected on initial load; Variable-order context analysis is identified as the recommended advanced workflow. Higher-order Markov shows an explicit positive context-depth k control. Variable-order context analysis shows its examined depth range and optional explicit suffix-backoff control. HMM uses the fixed complement editor from Section 2.2. Observed Shannon Entropy has no model controls.
+**Anatomy:** panel heading, one sentence about the method’s assumption, only the inputs that method needs, validation summary, and method specific warning area. Markov Chain shows its workflow selector beneath the method heading: Variable-order Markov and First-order Markov. Variable-order Markov is selected on initial load and shows explicit smoothing, minimum-support, and result-scope controls. Its automatic deepest-supported suffix-backoff policy and outcome are visible in results and evidence. First-order Markov retains its estimator, prefix mode, and result-scope controls. HMM uses the fixed complement editor from Section 2.2. Observed Shannon Entropy has no model controls.
 
-**States:** a hidden method panel has no keyboard stop. A selected method with missing or invalid required data has an error or unavailable result state, not a hidden failure. Markov unavailable states identify the workflow, requested context depth when applicable, evidence condition, smoothing alpha, and whether explicit backoff was selected. Inputs are never silently normalized.
+**States:** a hidden method panel has no keyboard stop. A selected method with missing or invalid required data has an error or unavailable result state, not a hidden failure. Markov unavailable states identify the workflow, requested context depth when applicable, evidence condition, smoothing alpha, and the automatic backoff outcome when a shorter suffix is selected. Inputs are never silently normalized.
 
 ### 5.6 Scientific notice
 
@@ -322,7 +321,7 @@ Notices persist until resolved or deliberately dismissed. A notice is not focusa
 
 **Use for:** per-sequence summaries, pooled summaries, method comparison, Markov context-depth evidence, evaluation rows, prefix rows, and exact chart values.
 
-**Anatomy:** visible heading, scope and method caption, semantic headers with units, native Streamlit dataframe where practical, a three decimal display format, and raw export actions nearby. A Markov context-depth table includes dataset role, record identifier, workflow, requested depth, actual depth, context, context occurrence count, next A count, next B count, support status, sparse status, estimation rule, smoothing alpha, explicit backoff reason when applicable, next A probability, next B probability, predictive entropy in bits, evaluation status, observed target when supplied, and target surprisal in bits when defined. The default row order is deterministic input order, then requested depth from shortest to longest, or prefix order. Sorting and search may be offered through native dataframe behavior, but they are presentation only. They never change calculation order, chart order, target evaluation, or export order.
+**Anatomy:** visible heading, scope and method caption, semantic headers with units, native Streamlit dataframe where practical, a three decimal display format, and raw export actions nearby. A Markov context-depth table includes dataset role, record identifier, workflow, requested depth, actual depth, context, context occurrence count, next A count, next B count, support status, sparse status, estimation rule, smoothing alpha, automatic suffix-backoff outcome and reason when applicable, next A probability, next B probability, predictive entropy in bits, evaluation status, observed target when supplied, and target surprisal in bits when defined. The default row order is deterministic input order, then requested depth from shortest to longest, or prefix order. Sorting and search may be offered through native dataframe behavior, but they are presentation only. They never change calculation order, chart order, target evaluation, or export order.
 
 **States:** loading, empty, stale, error, unavailable, and not applicable states replace the dataframe with a textual state or scientific notice. Horizontal overflow is permitted. Vertical internal scrolling is not. The authoritative underlying values remain available through raw export at the required precision.
 
@@ -340,9 +339,9 @@ Notices persist until resolved or deliberately dismissed. A notice is not focusa
 
 **Anatomy:** a secondary native download action naming its exact artifact, format, method scope, readiness state, and a nearby reproducibility panel. The calculation action is the sole filled primary action.
 
-Experimental Markov downloads are separately named `Context model export`, `Context evidence export`, and `Evaluation export`. Each carries an experimental-status notice and contains the required stimulus fields: dataset role, training dataset identifier, evaluation dataset identifier when present, record identifier, source order, sequence stimulus, consumed-prefix stimulus, sequence length, consumed-prefix depth, displayed context, requested depth, actual depth, workflow, estimation rule, smoothing alpha, suffix-backoff selection and reason, context occurrence count, next A count, next B count, support status, sparse status, next A probability, next B probability, predictive entropy in bits, observed target when supplied, target probability, target surprisal in bits when defined, and evaluation status. The Context model export additionally records configured depth selection and all fitted context distributions. The Context evidence export records every examined training context. The Evaluation export records held-out or in-sample status and never relabels training-data evaluation as held out.
+Experimental Markov downloads are separately named `Context model export`, `Context evidence export`, and `Evaluation export`. Each carries an experimental-status notice and contains the required stimulus fields: dataset role, training dataset identifier, record identifier, source order, sequence stimulus, consumed-prefix stimulus, sequence length, consumed-prefix depth, displayed context, requested depth, actual depth, workflow, estimation rule, smoothing alpha, automatic suffix-backoff outcome and reason, context occurrence count, next A count, next B count, support status, sparse status, next A probability, next B probability, predictive entropy in bits, observed target when supplied, target probability, target surprisal in bits when defined, and evaluation status. The Context model export additionally records the `deepest_supported_suffix` configured depth selection and all fitted context distributions. The Context evidence export records every examined training context. The Evaluation export records in-sample status and never describes a training-data target as held out.
 
-The reproducibility panel exposes selected methods, method assumptions, configured HMM values when used, Markov workflow, requested and actual depths, estimation rule, smoothing alpha, support and sparse rules, suffix-backoff selection and reasons, availability, training and evaluation dataset roles, parsed record counts, accepted and rejected identifiers, sequence lengths, pooled rule, target evaluation status, units, visible precision, raw export precision, stable ordering, and application or calculation version when recorded. Never claim a seed, version, dependency fact, held-out evaluation, stationary result, or entropy-rate interpretation that is not recorded.
+The reproducibility panel exposes selected methods, method assumptions, configured HMM values when used, Markov workflow, requested and actual depths, estimation rule, smoothing alpha, support and sparse rules, automatic suffix-backoff outcomes and reasons, availability, training dataset role, parsed record counts, accepted and rejected identifiers, sequence lengths, pooled rule, in-sample target assessment status, units, visible precision, raw export precision, stable ordering, and application or calculation version when recorded. Never claim a seed, version, dependency fact, held-out evaluation, stationary result, or entropy-rate interpretation that is not recorded.
 
 **States:** exports remain disabled with a reason until valid current content exists. A stale change disables every dependent export. Export failure retains the action and shows a specific notice. File names are descriptive and deterministic, not timestamp dependent.
 
@@ -356,8 +355,8 @@ The reproducibility panel exposes selected methods, method assumptions, configur
 
 ### 6.1 Explicit calculation lifecycle
 
-1. Initial state: Markov Chain with First-order Markov is selected. Intake and method controls show a documented starter state or clear empty instruction. Results explain what must be submitted.
-2. Editing state: changing methods, Markov workflow, context depth, smoothing alpha, suffix-backoff selection, training or evaluation input text, upload, parsed records, scope inputs, or evaluation target invalidates dependent outputs and exports.
+1. Initial state: Markov Chain with Variable-order Markov is selected. Intake and method controls show a documented starter state or clear empty instruction. Results explain what must be submitted.
+2. Editing state: changing methods, Markov workflow, smoothing alpha, minimum support, training input text, upload, parsed records, scope inputs, or evaluation target invalidates dependent outputs and exports.
 3. Validation state: the explicit calculate action validates every active input. It preserves values, identifies the first invalid field, and summarizes additional failures without flooding the page.
 4. Calculating state: show persistent static text naming the selected methods. Do not calculate on each keystroke.
 5. Success state: render valid current results in document flow, include applicable warnings, and enable only matching exports.
@@ -370,8 +369,8 @@ The reproducibility panel exposes selected methods, method assumptions, configur
 2. Probability inputs accept only the documented finite range. The HMM complement remains derived, not independently validated as a user value.
 3. Labels and identifiers must meet the documented distinctness and syntax rules.
 4. Parse text, TXT, and CSV through one documented record model. Do not silently coerce labels, discard tokens, reorder records, or normalize probabilities.
-5. Markov Chain validates a positive fixed k only for Higher-order Markov; Variable-order context analysis derives available depths from each independent record and never crosses record boundaries.
-6. Separate evaluation data uses the documented record model but is excluded from every fit, count, support decision, smoothing denominator, context selection, and backoff decision. Training-data evaluation is visibly labeled not held out.
+5. Variable-order Markov derives available depths from each independent record and never crosses record boundaries.
+6. A target supplied with a training record is excluded from every fit, count, support decision, smoothing denominator, context selection, and backoff decision. Its assessment is visibly labeled `In-sample evaluation, not held out`.
 7. State clearly when pooled analysis is impossible, unavailable, or excluded by the active method’s rule.
 8. Keep method assumptions and warnings visible near the result they qualify.
 
@@ -420,16 +419,16 @@ QA must capture and inspect screenshots at 375, 768, and 1280 px. The 1280 px ca
 
 QA must also prove:
 
-1. Markov Chain appears selected initially with First-order Markov active; Hidden Markov Model and Observed Shannon Entropy can be selected together; only selected method controls appear.
+1. Markov Chain appears selected initially with Variable-order Markov active; Hidden Markov Model and Observed Shannon Entropy can be selected together; only selected method controls appear.
 2. The HMM editor permits one editable value and shows a read only derived complement, with no unlock row control.
 3. Single text, batch text, TXT upload, and CSV upload all show consistent parsing, accepted records, rejected records, and stale state after change.
 4. Pooled and per-sequence result scope, method comparison, method sections, tables, charts, warnings, MLE unavailable state, and evaluation-only target semantics are distinguishable.
 5. Dataframe display, metric blocks, chart labels, and tooltips show exactly three decimals while the corresponding raw export preserves at least 12 decimals or exact retained representation.
 6. Keyboard only operation reaches and visibly focuses method selection, upload controls, dataframes or overflow wrappers, downloads, and expanders.
 7. Document scrolling remains the only vertical scroll owner. If sticky CSS is proposed, separate browser QA proves every condition in Section 4.3. If not proven, release the non sticky layout.
-8. First-order Markov uses the immediately preceding symbol. Higher-order Markov uses the previous k symbols with an explicit k. Variable-order context analysis examines progressively longer preceding contexts and identifies itself as the recommended advanced workflow.
-9. MLE and additive smoothing alpha values are visible. An unseen MLE context shows the exact unavailable text, no implicit 0.5 distribution, hidden smoothing, or silent backoff. When explicit suffix backoff is selected, requested depth, actual depth, and reason appear in the table and export.
-10. Training and separate evaluation records never cross boundaries. Evaluation data cannot alter fit, counts, support, smoothing, context selection, or backoff. Training-data evaluation is labeled `In-sample evaluation, not held out`.
+8. Variable-order Markov examines progressively longer suffix contexts, uses the deepest sufficiently supported context, and identifies the effective predictive context depth. First-order Markov uses only the immediately preceding symbol as a baseline.
+9. KT, MLE, and custom additive smoothing choices and alpha values are visible. An unseen MLE context shows the exact unavailable text, no implicit 0.5 distribution or hidden smoothing. Automatic suffix backoff uses the deepest supported suffix, and requested depth, actual depth, and reason appear in the table and export.
+10. Training records never cross boundaries. A target cannot alter fit, counts, support, smoothing, context selection, or backoff. Training-data target assessment is labeled `In-sample evaluation, not held out`.
 11. Context-depth tables expose occurrences, A and B counts, support and sparse status, probabilities, entropy, and defined target surprisal. The entropy chart uses a fixed 0 to 1 bits axis; any probability chart is optional; neither implies monotonicity.
 12. Experimental Context model, Context evidence, and Evaluation exports contain their required stimulus fields and retain at least 12 decimals or exact retained representation.
 13. No gradient, glass effect, decorative shadow, imagery, emoji, marketing section, unsupported API claim, or decorative motion appears.
@@ -440,14 +439,14 @@ QA must also prove:
 2. The rendered theme is dark, high contrast, compact, rounded, and uses one restrained interactive accent.
 3. Every custom visual value resolves to a token.
 4. Every selected method has an explicit assumption, result meaning, validation path, warning path, and reproducibility record.
-5. Markov Chain is the default selection with First-order Markov as the initial workflow. Hidden Markov Model and Observed Shannon Entropy can run simultaneously with it.
+5. Markov Chain is the default selection with Variable-order Markov as the initial workflow and First-order Markov available as a baseline. Hidden Markov Model and Observed Shannon Entropy can run simultaneously with it.
 6. No unselected method controls occupy the configuration column.
 7. Text, batch, TXT, and CSV inputs produce clear accepted, rejected, pooled, and per sequence states.
 8. Predictive and descriptive methods are never presented as interchangeable. Evaluation targets are clearly evaluation only.
 9. MLE unavailable results are explicit and never replaced by invented values. An unseen MLE context uses the stated unavailable text and never receives an implicit 0.5 probability, hidden smoothing, or silent backoff.
-10. Markov Chain exposes exactly First-order Markov, Higher-order Markov, and Variable-order context analysis as nested workflows. First-order uses the immediately preceding symbol, Higher-order uses the previous k symbols, and Variable-order examines progressively longer preceding contexts. Variable-order is the recommended advanced workflow. No simulation or arbitrary order cap exists.
-11. Training data alone fits Markov contexts. No context crosses records, and optional separate evaluation data does not contribute to fit, counts, support, smoothing, selection, or backoff. In-sample evaluation is labeled not held out.
-12. Context evidence tables report occurrence count, A and B counts, support and sparse status, requested and actual depth, explicit suffix-backoff reason when used, probabilities, entropy, and target surprisal when defined. Context-depth entropy charts use a fixed 0 to 1 bits range, probability charts are optional, and no monotonicity is implied.
+10. Markov Chain exposes exactly Variable-order Markov and First-order Markov as nested workflows. Variable-order examines progressively longer suffix contexts and uses the deepest sufficiently supported context; First-order uses only the immediately preceding symbol. No simulation or arbitrary order cap exists.
+11. Training data alone fits Markov contexts. No context crosses records, and an optional target does not contribute to fit, counts, support, smoothing, selection, or backoff. In-sample target assessment is labeled not held out.
+12. Context evidence tables report occurrence count, A and B counts, support and sparse status, requested and actual depth, automatic suffix-backoff outcome and reason when used, probabilities, entropy, and target surprisal when defined. Context-depth entropy charts use a fixed 0 to 1 bits range, probability charts are optional, and no monotonicity is implied.
 13. Experimental Context model, Context evidence, and Evaluation exports preserve the required stimulus fields, float64 source values, and at least 12 decimal places or exact retained representation.
 14. HMM complements are derived read-only values. No unlock row control exists.
 15. The visual layer uses exactly three decimal places for finite decimal values. Raw exports retain at least 12 decimals or exact retained representation.
