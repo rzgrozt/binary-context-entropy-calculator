@@ -18,7 +18,7 @@ uv run streamlit run streamlit_app.py
 
 The setup screen selects **Markov Chain** by default. Choose any subset of:
 
-- **Markov Chain**, a fitted first-order predictive model.
+- **Markov Chain**, with Variable-order Markov selected by default and First-order Markov available as a baseline.
 - **Hidden Markov Model**, a configured two-hidden-state, two-observable
   predictive model.
 - **Observed Shannon Entropy**, a descriptive analysis with no prediction.
@@ -63,9 +63,65 @@ H(p) = -p log2(p) - (1-p) log2(1-p)
 
 with `0 log2(0) = 0`. Thus binary entropy is in `[0, 1]` bits.
 
-### First-order Markov Chain
+### Variable-order Markov
 
-The Markov method is first-order only. Its prediction after a nonempty prefix
+Variable-order Markov (VMM) is the default predictive workflow. The model
+detects and predicts recurrent finite-context statistical dependencies in
+binary sequences. It does not claim to discover every possible pattern.
+
+For each order `k` from 0 through the usable suffix depth, the model counts a
+context `c` and the symbols that followed it within each independent record:
+
+```text
+N(c, x) = number of within-record occurrences of context c followed by x
+N(c) = N(c, A) + N(c, B)
+```
+
+Order 0 uses observed symbol counts and has no suffix. For the current record,
+the model examines suffixes from deepest to shortest and uses the deepest one
+whose support `N(c)` meets the configured minimum. Unseen or under-supported
+suffixes back off to the next shorter supported suffix; backoff is never
+silent. Records are never concatenated.
+
+VMM offers three explicit estimation choices:
+
+- **Krichevsky-Trofimov (KT)** is the default and fixes `alpha = 0.5`:
+
+  ```text
+  P(next = x | c) = (N(c, x) + 0.5) / (N(c) + 1)
+  ```
+- **Maximum likelihood estimation (MLE)** fixes `alpha = 0`:
+
+  ```text
+  P(next = x | c) = N(c, x) / N(c)
+  ```
+
+  MLE unavailable: unseen context has no occurrences in the training dataset.
+- **Custom additive smoothing** accepts only a positive `alpha`:
+
+  ```text
+  P(next = x | c) = (N(c, x) + alpha) / (N(c) + 2 alpha)
+  ```
+
+Choose a pooled model to sum within-record counts across independent sequences
+and analyze each sequence against the shared fit, or choose per-sequence
+analysis to fit each record separately. Every record reports the effective
+predictive context depth, context used, support, next-symbol probabilities,
+prediction or tie, predictive Shannon entropy, A/B surprisal, and a table of
+all examined depths. The context-depth evidence table preserves workflow,
+scope, support and sparse status, the automatic suffix-backoff outcome and
+reason, and per-depth target values when a target is supplied. An optional
+actual target is assessed only after prediction, is labeled `In-sample
+evaluation, not held out`, and never contributes to fitting or context
+selection.
+
+For `A,A,B,A,A,B,A,A` with minimum support 2 and KT smoothing, suffix `AA`
+has support 2 and gives `P(next B | AA) = 2.5 / 3`. The first-order suffix `A`
+has continuation counts `(A=3, B=2)` and gives `P(next B | A) = 2.5 / 6`.
+
+### First-order Markov baseline
+
+The first-order baseline predicts after a nonempty prefix
 uses the transition row for the current, final observed symbol:
 
 ```text
@@ -73,7 +129,7 @@ T[i, j] = P(X[t+1] = j | X[t] = i)
 q_t = T[X[t], :]
 ```
 
-The method does not condition directly on a longer history. Longer sequences
+This baseline does not condition directly on a longer history. Longer sequences
 can affect a fitted transition estimate, but they do not create a higher-order
 model. At depth 0, no current state exists, so a Markov prediction is
 unavailable.
@@ -154,9 +210,10 @@ summaries for each record.
 
 ### Predictive entropy and target surprisal
 
-Markov and HMM predictive entropy apply `H` to their next-symbol distribution
-`q_t`. Observed-symbol Shannon entropy instead describes data that has already
-been supplied, so the two are not interchangeable.
+VMM, first-order Markov, and HMM predictive entropy apply `H` to their
+next-symbol distribution `q_t`. Observed-symbol Shannon entropy instead
+describes data that has already been supplied, so the quantities are not
+interchangeable.
 
 An optional observed next target evaluates an existing final Markov or HMM
 prediction without changing fitting or prediction:
@@ -171,16 +228,18 @@ still identifies the probabilities as tied.
 
 ## Results, precision, and downloads
 
-The UI displays scientific values to exactly three decimal places. Calculations
-retain float64 precision. HMM CSV exports use 12 fixed decimal places; Markov
-CSV exports preserve round-trip float64 values with at least 12 fractional
-decimal places. JSON exports retain their serialized numeric values.
+The UI displays finite scientific values to exactly three decimal places.
+Calculations retain float64 precision. Display rounding is separate from raw
+exports: HMM CSV exports use 12 fixed decimal places, Markov CSV exports
+preserve round-trip float64 values with at least 12 fractional decimal places,
+and JSON exports retain serialized numeric values. Tables, charts, and exports
+use deterministic record and context-depth order.
 
 Selected methods appear in a comparison table. Predictive fields are marked
-not applicable for Observed Shannon Entropy. Each predictive method also shows
-per-sequence final values and prefix evidence. HMM results include an entropy
-chart; Markov results include probability and entropy charts when predictions
-are available.
+not applicable for Observed Shannon Entropy. VMM shows per-sequence final
+values, context-depth evidence, and a static predictive-entropy chart with a
+fixed vertical axis from 0 to 1 bits. HMM and first-order Markov retain their
+existing prefix results and charts.
 
 Available downloads are method-specific:
 
@@ -193,6 +252,15 @@ Available downloads are method-specific:
 - **Markov batch-summary CSV** contains one deterministic summary row per
   record with sequence, counts, fitted transition values, final prediction,
   observed Shannon entropy, optional target assessment, and method settings.
+- **Context model JSON** is an experimental VMM artifact containing configured
+  selection, training-data provenance, record stimuli, and every fitted context
+  distribution. It does not claim a separate held-out evaluation dataset.
+- **Context evidence CSV** is an experimental VMM artifact with every examined
+  suffix in deterministic record and requested-depth order, including support,
+  sparse, backoff, probability, entropy, and per-depth target fields.
+- **Evaluation CSV** is an experimental VMM artifact with final predictions and
+  optional targets. Supplied targets are reported as `In-sample evaluation, not
+  held out`, never as held-out evaluation.
 - **HMM preset JSON** imports and exports the schema-v1 configured model.
 - **HMM prefix CSV** and **HMM candidate-summary CSV** are available for each
   record. The prefix file covers depths 0 through the complete prefix; the
@@ -204,28 +272,35 @@ Observed Shannon Entropy currently has no download export.
 ## Reusable Python API
 
 The package exposes immutable records, parsers, method requests, and analysis
-functions. This example parses a batch, runs a first-order Markov analysis,
-and serializes its prefix rows:
+functions. This example parses a batch and runs the default VMM analysis:
 
 ```python
 from binary_entropy import (
     BinaryLabels,
-    MarkovAnalysisRequest,
+    VMMAnalysisRequest,
+    VMMConfig,
+    VMMResultScope,
     analyze_dataset,
-    markov_sequence_csv,
     parse_manual_batch,
 )
 
 labels = BinaryLabels(states=("State 1", "State 2"), observables=("A", "B"))
 dataset = parse_manual_batch("A, B, B\nB, A", labels)
-result = analyze_dataset(dataset, MarkovAnalysisRequest(smoothing_alpha=1.0))
-csv_text = markov_sequence_csv(result)
+result = analyze_dataset(
+    dataset,
+    VMMAnalysisRequest(
+        config=VMMConfig(minimum_support=2),
+        result_scope=VMMResultScope.POOLED,
+    ),
+)
 ```
 
-For a configured HMM, use `BinaryHMM`, `HMMAnalysisRequest`, and
-`analyze_dataset`. `parse_csv_batch`, `parse_txt_batch`, `SequenceRecord`,
-`SequenceDataset`, `ShannonAnalysisRequest`, `compare_methods`, and the Markov
-fit and prediction functions are also public exports.
+For the first-order baseline, use `MarkovAnalysisRequest`. For a configured
+HMM, use `BinaryHMM`, `HMMAnalysisRequest`, and `analyze_dataset`.
+`parse_csv_batch`, `parse_txt_batch`, `SequenceRecord`, `SequenceDataset`,
+`ShannonAnalysisRequest`, `compare_methods`, `KTSmoothing`, `MLESmoothing`,
+`AdditiveSmoothing`, and the VMM and first-order fit functions are also public
+exports.
 
 ## Architecture
 
@@ -233,7 +308,12 @@ fit and prediction functions are also public exports.
   submission, stale-result handling, and rendering.
 - `records.py` and `batch_parsing.py` define independent records and single,
   multiline, TXT, and CSV intake boundaries.
-- `workbench.py` routes typed Markov, HMM, and Shannon requests.
+- `workbench.py` routes typed VMM, first-order Markov, HMM, and Shannon requests.
+- `methods/vmm.py` and `vmm_types.py` implement boundary-preserving context
+  counts, KT, MLE, and custom additive smoothing, automatic deepest-supported
+  suffix selection, and per-record VMM results.
+- `vmm_serialization.py` produces the experimental Context model JSON, Context
+  evidence CSV, and Evaluation CSV artifacts.
 - `methods/markov.py`, `methods/hmm.py`, and `methods/shannon.py` implement
   the three analyses.
 - `markov_types.py`, `markov_information.py`, and the Markov serialization
@@ -285,9 +365,12 @@ selection, uploads, presets, targets, results, and stale state.
 ## Limitations
 
 - The workbench is binary only. The HMM has two hidden states and two
-  observables; Markov order is fixed at one.
-- Markov fitting is count-based MLE or additive smoothing. There is no
-  higher-order fitting, HMM training, or statistical inference.
+  observables. VMM models recurrent finite suffix contexts, not arbitrary or
+  causal patterns.
+- VMM and first-order Markov fitting are count-based. The HMM is configured,
+  not trained, and the workbench does not perform statistical inference.
+- An unseen VMM context under MLE is unavailable rather than implicitly
+  smoothed.
 - A maximum-likelihood Markov row with no outgoing evidence is unavailable.
 - Stationary distributions and entropy rates appear only when the fitted
   transition matrix identifies a unique stationary distribution.
