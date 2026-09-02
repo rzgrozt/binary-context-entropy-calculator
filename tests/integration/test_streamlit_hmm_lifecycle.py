@@ -19,6 +19,12 @@ def _markov_workspace() -> AppTest:
     _ = next(button for button in app.button if button.label == "Continue").click()
     _ = app.run()
     assert not app.exception
+    workflow = next(
+        item for item in app.selectbox if item.label == "Markov workflow"
+    )
+    _ = workflow.set_value("First-order Markov")
+    _ = app.run()
+    assert not app.exception
     return app
 
 

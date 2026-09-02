@@ -27,12 +27,18 @@ from binary_entropy.ui.workbench_state import (
     ESTIMATION_OPTIONS,
     MarkovControls,
     MarkovEstimationChoice,
+    MarkovWorkflow,
+    VMMSmoothingChoice,
 )
 
+MARKOV_WORKFLOW_KEY: Final = "markov_workflow"
 MARKOV_ESTIMATION_KEY: Final = "markov_estimation"
 MARKOV_ALPHA_KEY: Final = "markov_custom_alpha"
 MARKOV_PREFIX_KEY: Final = "markov_prefix_mode"
 MARKOV_SCOPE_KEY: Final = "markov_result_scope"
+VMM_SMOOTHING_KEY: Final = "vmm_smoothing"
+VMM_ALPHA_KEY: Final = "vmm_custom_alpha"
+VMM_SUPPORT_KEY: Final = "vmm_minimum_support"
 FIXED_PREFIX_LABEL: Final = "Fixed fitted transition matrix"
 CUMULATIVE_PREFIX_LABEL: Final = "Re-estimate from each prefix"
 POOLED_SCOPE_LABEL: Final = "Pooled model"
@@ -40,52 +46,108 @@ PER_SEQUENCE_SCOPE_LABEL: Final = "Per-sequence analysis"
 
 
 def render_markov_controls() -> MarkovControls:
-    """Render the first-order Markov estimator, prefix mode, and result scope."""
+    """Render one explicit Markov workflow and only its applicable controls."""
     _ = st.subheader("Markov Chain controls")
-    estimation_value = st.selectbox(
-        "Estimation method",
-        options=tuple(option.value for option in ESTIMATION_OPTIONS),
-        key=MARKOV_ESTIMATION_KEY,
+    workflow_value = st.selectbox(
+        "Markov workflow",
+        options=tuple(workflow.value for workflow in MarkovWorkflow),
+        key=MARKOV_WORKFLOW_KEY,
     )
-    estimation = MarkovEstimationChoice(
-        estimation_value or MarkovEstimationChoice.MAXIMUM_LIKELIHOOD.value
-    )
+    workflow = MarkovWorkflow(workflow_value or MarkovWorkflow.VMM.value)
+
+    estimation = MarkovEstimationChoice.MAXIMUM_LIKELIHOOD
     custom_alpha = 0.5
-    if estimation is MarkovEstimationChoice.CUSTOM:
-        custom_alpha = st.number_input(
-            "Custom smoothing alpha",
-            min_value=0.0,
-            value=0.5,
-            step=0.1,
-            format=UI_NUMBER_FORMAT,
-            key=MARKOV_ALPHA_KEY,
-        )
-    _ = st.text_input("Markov order", value="1", disabled=True)
-    prefix_value = st.selectbox(
-        "Prefix prediction mode",
-        options=(FIXED_PREFIX_LABEL, CUMULATIVE_PREFIX_LABEL),
-        key=MARKOV_PREFIX_KEY,
-    )
-    if prefix_value == CUMULATIVE_PREFIX_LABEL:
-        prediction_mode = MarkovPredictionMode.CUMULATIVE_PREFIX
-        _ = st.markdown(
-            joined_text(
-                (
-                    "Cumulative mode: model estimates update with evidence, not ",
-                    "higher-order memory.",
+    prediction_mode = MarkovPredictionMode.FIXED_MODEL
+    vmm_smoothing_choice = VMMSmoothingChoice.KT
+    vmm_custom_alpha = 0.5
+    minimum_support = 2
+
+    match workflow:
+        case MarkovWorkflow.VMM:
+            _ = st.caption(
+                joined_text(
+                    (
+                        "Fits finite suffix contexts and selects the deepest context ",
+                        "with the configured minimum support.",
+                    )
                 )
             )
-        )
-    else:
-        prediction_mode = MarkovPredictionMode.FIXED_MODEL
-        _ = st.markdown(
-            joined_text(
-                (
-                    "Fixed mode: only the final prefix state changes row selection; ",
-                    "the fitted transition matrix stays fixed.",
+            smoothing_value = st.selectbox(
+                "VMM smoothing",
+                options=tuple(choice.value for choice in VMMSmoothingChoice),
+                key=VMM_SMOOTHING_KEY,
+            )
+            vmm_smoothing_choice = VMMSmoothingChoice(
+                smoothing_value or VMMSmoothingChoice.KT.value
+            )
+            if vmm_smoothing_choice is VMMSmoothingChoice.ADDITIVE:
+                vmm_custom_alpha = st.number_input(
+                    "Custom additive alpha",
+                    min_value=0.001,
+                    value=0.5,
+                    step=0.001,
+                    format=UI_NUMBER_FORMAT,
+                    key=VMM_ALPHA_KEY,
+                )
+            minimum_support = st.number_input(
+                "Minimum context support",
+                min_value=1,
+                value=2,
+                step=1,
+                key=VMM_SUPPORT_KEY,
+            )
+            _ = st.caption(
+                joined_text(
+                    (
+                        "Unsupported suffixes back off to shorter supported contexts; ",
+                        "records stay independent and are never concatenated.",
+                    )
                 )
             )
-        )
+        case MarkovWorkflow.FIRST_ORDER:
+            estimation_value = st.selectbox(
+                "Estimation method",
+                options=tuple(option.value for option in ESTIMATION_OPTIONS),
+                key=MARKOV_ESTIMATION_KEY,
+            )
+            estimation = MarkovEstimationChoice(
+                estimation_value
+                or MarkovEstimationChoice.MAXIMUM_LIKELIHOOD.value
+            )
+            if estimation is MarkovEstimationChoice.CUSTOM:
+                custom_alpha = st.number_input(
+                    "Custom smoothing alpha",
+                    min_value=0.0,
+                    value=0.5,
+                    step=0.1,
+                    format=UI_NUMBER_FORMAT,
+                    key=MARKOV_ALPHA_KEY,
+                )
+            _ = st.text_input("Markov order", value="1", disabled=True)
+            prefix_value = st.selectbox(
+                "Prefix prediction mode",
+                options=(FIXED_PREFIX_LABEL, CUMULATIVE_PREFIX_LABEL),
+                key=MARKOV_PREFIX_KEY,
+            )
+            if prefix_value == CUMULATIVE_PREFIX_LABEL:
+                prediction_mode = MarkovPredictionMode.CUMULATIVE_PREFIX
+                _ = st.markdown(
+                    joined_text(
+                        (
+                            "Cumulative mode: model estimates update with evidence, ",
+                            "not higher-order memory.",
+                        )
+                    )
+                )
+            else:
+                _ = st.markdown(
+                    joined_text(
+                        (
+                            "Fixed mode: only the final prefix state changes row ",
+                            "selection; the fitted transition matrix stays fixed.",
+                        )
+                    )
+                )
     scope_value = st.selectbox(
         "Markov result scope",
         options=(POOLED_SCOPE_LABEL, PER_SEQUENCE_SCOPE_LABEL),
@@ -101,6 +163,10 @@ def render_markov_controls() -> MarkovControls:
         custom_alpha=custom_alpha,
         prediction_mode=prediction_mode,
         result_scope=result_scope,
+        workflow=workflow,
+        vmm_smoothing_choice=vmm_smoothing_choice,
+        vmm_custom_alpha=vmm_custom_alpha,
+        minimum_support=minimum_support,
     )
 
 
@@ -111,6 +177,10 @@ def default_markov_controls() -> MarkovControls:
         custom_alpha=0.5,
         prediction_mode=MarkovPredictionMode.FIXED_MODEL,
         result_scope=MarkovResultScope.POOLED,
+        workflow=MarkovWorkflow.VMM,
+        vmm_smoothing_choice=VMMSmoothingChoice.KT,
+        vmm_custom_alpha=0.5,
+        minimum_support=2,
     )
 
 

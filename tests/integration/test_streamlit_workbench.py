@@ -26,6 +26,12 @@ def _workspace(methods: list[str] | None = None) -> AppTest:
     _ = next(button for button in app.button if button.label == "Continue").click()
     _ = app.run()
     assert not app.exception
+    workflow = next(
+        item for item in app.selectbox if item.label == "Markov workflow"
+    )
+    _ = workflow.set_value("First-order Markov")
+    _ = app.run()
+    assert not app.exception
     return app
 
 
@@ -81,7 +87,7 @@ def test_workspace_when_all_methods_are_selected_shows_hmm_complements() -> None
     assert initial["Derived probability for State 2 (1 - p)"].value == 0.4
 
 
-def test_markov_when_default_is_calculated_renders_fixture_and_downloads() -> None:
+def test_first_order_markov_when_calculated_renders_fixture_and_downloads() -> None:
     # Given
     app = _workspace()
 
@@ -92,7 +98,7 @@ def test_markov_when_default_is_calculated_renders_fixture_and_downloads() -> No
     metrics = {metric.label: metric.value for metric in app.metric}
     assert metrics["P(next A)"] == "0.500"
     assert metrics["P(next B)"] == "0.500"
-    assert metrics["Markov predictive entropy (bits)"] == "1.000"
+    assert metrics["Predictive entropy (bits)"] == "1.000"
     downloads = [item.label for item in app.download_button]
     assert "Download Markov model JSON" in downloads
     assert "Download Markov prefix CSV" in downloads

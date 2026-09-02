@@ -13,6 +13,12 @@ def _workspace() -> AppTest:
     _ = next(button for button in app.button if button.label == "Continue").click()
     _ = app.run()
     assert not app.exception
+    workflow = next(
+        item for item in app.selectbox if item.label == "Markov workflow"
+    )
+    _ = workflow.set_value("First-order Markov")
+    _ = app.run()
+    assert not app.exception
     return app
 
 
@@ -114,7 +120,7 @@ def test_csv_upload_when_present_exposes_explicit_columns_and_row_targets() -> N
 
     # Then
     frames = [item.value for item in app.dataframe]
-    summary = next(frame for frame in frames if "Sequence ID" in frame.columns)
+    summary = next(frame for frame in frames if "Observed target" in frame.columns)
     assert summary["Sequence ID"].tolist() == ["alpha", "beta"]
     assert summary["Observed target"].tolist() == ["A", "B"]
 
