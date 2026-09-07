@@ -1,10 +1,11 @@
+import math
 from typing import Final
 
 import pytest
 
 from binary_entropy.ui.state import ActualTargetChoice
 
-from .vmm_app_support import calculate, workspace
+from .vmm_app_support import calculate, select_scope, select_subview, workspace
 
 MLE_LABEL: Final = "Maximum likelihood (alpha = 0.000)"
 MLE_UNAVAILABLE_TEXT: Final = (
@@ -98,8 +99,8 @@ def test_vmm_mle_when_selected_exposes_fixed_alpha_in_results() -> None:
 
     # Then
     assert "Custom additive alpha" not in [item.label for item in app.number_input]
-    result_text = "\n".join(item.value for item in app.markdown)
-    assert "Maximum likelihood (MLE) with alpha 0.000" in result_text
+    captions = "\n".join(item.value for item in app.caption)
+    assert "smoothing MLE, alpha 0.000" in captions
 
 
 def test_vmm_mle_when_context_is_unseen_shows_exact_unavailable_contract() -> None:
@@ -115,9 +116,15 @@ def test_vmm_mle_when_context_is_unseen_shows_exact_unavailable_contract() -> No
 
     # When
     app = calculate(app)
+    app = select_subview(app, "Evidence")
 
     # Then
-    assert MLE_UNAVAILABLE_TEXT in [item.value for item in app.info]
+    evidence = next(
+        item.value for item in app.dataframe if "Requested depth" in item.value.columns
+    )
+    assert evidence.loc[0, "Support status"] == "unavailable"
+    assert evidence.loc[0, "Suffix-backoff selection"] == "no_context_selected"
+    assert evidence.loc[0, "Suffix-backoff reason"] == MLE_UNAVAILABLE_TEXT
 
 
 def test_vmm_mle_when_seen_evidence_is_below_support_does_not_claim_unseen() -> None:
@@ -133,14 +140,19 @@ def test_vmm_mle_when_seen_evidence_is_below_support_does_not_claim_unseen() -> 
 
     # When
     app = calculate(app)
+    app = select_subview(app, "Evidence")
 
     # Then
-    notices = [item.value for item in app.info]
-    assert MLE_UNAVAILABLE_TEXT not in notices
-    assert (
-        "Prediction unavailable: no context meets the configured minimum support."
-        in notices
+    evidence = next(
+        item.value for item in app.dataframe if "Requested depth" in item.value.columns
     )
+    assert evidence.loc[0, "Context occurrence count"] == 1
+    assert evidence.loc[0, "Support status"] == "low_support"
+    assert evidence.loc[0, "Suffix-backoff selection"] == "no_context_selected"
+    assert evidence.loc[0, "Suffix-backoff reason"] == (
+        "Context support is below the configured minimum."
+    )
+    assert evidence.loc[0, "Suffix-backoff reason"] != MLE_UNAVAILABLE_TEXT
 
 
 def test_vmm_when_default_is_calculated_renders_result_section() -> None:
@@ -151,18 +163,15 @@ def test_vmm_when_default_is_calculated_renders_result_section() -> None:
     app = calculate(app)
 
     # Then
-    assert "Variable-order Markov" in [item.value for item in app.subheader]
+    assert "Markov Chain" in [item.label for item in app.tabs]
     captions = "\n".join(item.value for item in app.caption)
     assert (
-        "The model detects and predicts recurrent finite-context statistical "
-        "dependencies in binary sequences."
+        "Variable-order pooled; smoothing KT, alpha 0.500; minimum support 2."
     ) in captions
-    assert any(
-        "Effective predictive context depth" in frame.value.columns
-        for frame in app.dataframe
-    )
-    assert any("Requested depth" in frame.value.columns for frame in app.dataframe)
+    assert not app.dataframe
     assert len(app.get("plotly_chart")) == 1
+    app = select_subview(app, "Evidence")
+    assert any("Requested depth" in frame.value.columns for frame in app.dataframe)
 
 
 def test_vmm_when_recurrent_context_is_calculated_shows_hand_checked_values() -> None:
@@ -176,15 +185,25 @@ def test_vmm_when_recurrent_context_is_calculated_shows_hand_checked_values() ->
 
     # When
     app = calculate(app)
+    app = select_scope(app, "One")
 
     # Then
     metrics = {metric.label: metric.value for metric in app.metric}
-    assert metrics["Effective predictive context depth"] == "2"
-    assert metrics["Actual context used"] == "A, A"
-    assert metrics["Support count"] == "2"
+    assert metrics["Effective context depth"] == "2"
+    assert metrics["Context used"] == "A, A"
     assert metrics["P(next B)"] == "0.833"
-    assert metrics["Actual target"] == "B"
-    assert metrics["Actual-target surprisal (bits)"] == "0.263"
+    app = select_subview(app, "Compare")
+    summary = next(
+        item.value
+        for item in app.dataframe
+        if "Effective predictive context depth" in item.value.columns
+    )
+    assert summary.loc[0, "Support count"] == 2
+    assert summary.loc[0, "Actual target"] == "B"
+    assert summary.loc[0, "Actual-target surprisal (bits)"] == pytest.approx(
+        -math.log2(5 / 6)
+    )
+    app = select_subview(app, "Evidence")
     depth_frame = next(
         item.value for item in app.dataframe if "Requested depth" in item.value.columns
     )
@@ -194,15 +213,15 @@ def test_vmm_when_recurrent_context_is_calculated_shows_hand_checked_values() ->
 
 
 @pytest.mark.parametrize(
-    ("scope", "expected_scope"),
+    ("scope", "expected_caption"),
     [
-        ("Pooled model", "Pooled fit; per-sequence prediction"),
-        ("Per-sequence analysis", "Per-sequence fit and prediction"),
+        ("Pooled model", "Variable-order pooled"),
+        ("Per-sequence analysis", "Variable-order per sequence"),
     ],
 )
 def test_vmm_when_batch_scope_is_selected_calculates_each_record(
     scope: str,
-    expected_scope: str,
+    expected_caption: str,
 ) -> None:
     # Given
     app = workspace()
@@ -220,6 +239,7 @@ def test_vmm_when_batch_scope_is_selected_calculates_each_record(
 
     # When
     app = calculate(app)
+    app = select_subview(app, "Compare")
 
     # Then
     summary = next(
@@ -227,15 +247,17 @@ def test_vmm_when_batch_scope_is_selected_calculates_each_record(
         for item in app.dataframe
         if "Effective predictive context depth" in item.value.columns
     )
-    comparison = next(
-        item.value for item in app.dataframe if "Method" in item.value.columns
-    )
     assert len(summary) == 2
-    assert comparison["Method"].tolist() == [
-        "Variable-order Markov",
-        "Variable-order Markov",
-    ]
-    assert comparison["Scope"].tolist() == [expected_scope, expected_scope]
+    assert summary["Sequence ID"].tolist() == ["sequence-001", "sequence-002"]
+    app = select_subview(app, "Evidence")
+    evidence = next(
+        item.value for item in app.dataframe if "Result scope" in item.value.columns
+    )
+    result_scope = "pooled" if scope == "Pooled model" else "per_sequence"
+    assert set(evidence["Record ID"]) == {"sequence-001", "sequence-002"}
+    assert set(evidence["Result scope"]) == {result_scope}
+    captions = "\n".join(item.value for item in app.caption)
+    assert expected_caption in captions
 
 
 def test_vmm_results_when_control_changes_become_stale() -> None:
