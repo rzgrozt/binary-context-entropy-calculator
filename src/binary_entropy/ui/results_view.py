@@ -1,41 +1,63 @@
-"""Submitted-result lifecycle and selected-method rendering."""
+"""Tracked active-tab coordination for immutable workbench results."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from enum import StrEnum
+from typing import Final, assert_never
 
 import streamlit as st
 
-from binary_entropy.markov_types import MarkovBatchAnalysis
-from binary_entropy.methods.hmm import HMMBatchAnalysis
-from binary_entropy.methods.shannon import ShannonBatchAnalysis
-from binary_entropy.ui.comparison import render_comparison
-from binary_entropy.ui.markov_view import render_markov_result
 from binary_entropy.ui.session import (
     WorkbenchCalculationRecord,
     WorkbenchSubmissionFailure,
 )
-from binary_entropy.ui.shannon_results import render_shannon_result
-from binary_entropy.ui.summary import render_hmm_result
 from binary_entropy.ui.text import joined_text
-from binary_entropy.ui.tokens import format_ui_decimal
-from binary_entropy.ui.vmm_view import render_vmm_result
-from binary_entropy.ui.workbench_state import (
-    MarkovWorkflow,
-    MethodCalculationFailure,
-    MethodChoice,
-    WorkbenchCalculationSuccess,
-    WorkbenchForm,
+from binary_entropy.ui.workbench_state import MethodChoice, WorkbenchForm
+from binary_entropy.ui.workspace_current import (
+    CurrentSubmission,
+    current_submission,
+    failure_for_method,
+    result_for_method,
 )
-from binary_entropy.vmm_types import VMMAnalysis
-from binary_entropy.workbench import WorkbenchResult
+from binary_entropy.ui.workspace_exports import (
+    WorkspaceArtifact,
+    selected_artifacts,
+)
+from binary_entropy.ui.workspace_renderers import (
+    ComparisonWorkspaceContext,
+    MethodWorkspaceContext,
+    render_comparison_workspace,
+    render_method_workspace,
+)
+from binary_entropy.ui.workspace_selection import SequenceScope, project_record
+from binary_entropy.ui.workspace_session import (
+    WorkspaceSubview,
+    render_subview_control,
+    render_workspace_selection,
+)
+
+
+class WorkspaceTab(StrEnum):
+    """Fixed tracked tabs in source and visual order."""
+
+    COMPARISON = "Method Comparison"
+    MARKOV = "Markov Chain"
+    HMM = "Hidden Markov Model"
+    SHANNON = "Observed Shannon Entropy"
+
+
+TAB_LABELS: Final = tuple(tab.value for tab in WorkspaceTab)
 
 
 @dataclass(frozen=True, slots=True)
-class CurrentSubmission:
-    """Current method results, failures, and stale selected methods."""
+class MethodTabContext:
+    """Inputs required to render one active method tab."""
 
-    results: tuple[WorkbenchResult, ...]
-    failures: tuple[MethodCalculationFailure, ...]
-    stale_methods: tuple[MethodChoice, ...]
+    method: MethodChoice
+    current: CurrentSubmission
+    projected: WorkbenchCalculationRecord
+    form: WorkbenchForm
+    scope: SequenceScope
+    subview: WorkspaceSubview
 
 
 def render_results(
@@ -43,158 +65,177 @@ def render_results(
     record: WorkbenchCalculationRecord | None,
     failure: WorkbenchSubmissionFailure | None,
 ) -> None:
-    """Render only results whose shared and method-specific inputs are current."""
-    _ = st.header("Results")
+    """Render selectors and only the open tab from stored calculations."""
+    _ = st.title("Result workspace")
+    _ = st.caption("Wide comparison and result tables scroll horizontally.")
+    tabs = st.tabs(TAB_LABELS, key="workspace-method-tabs", on_change="rerun")
+    active_index = next(index for index, tab in enumerate(tabs) if tab.open)
+    active_tab = WorkspaceTab(TAB_LABELS[active_index])
     if failure is not None:
         _ = st.error(failure.message)
-        return
     if record is None:
-        _ = st.info(
-            joined_text(
-                (
-                    "Results are not calculated. Review the selected controls and ",
-                    "choose Calculate selected methods.",
-                )
-            )
-        )
+        with tabs[active_index]:
+            _render_uncalculated(active_tab, form)
         return
-    current = _current_submission(form, record.success)
+
+    current = current_submission(form, record.success)
     if current.stale_methods:
-        names = ", ".join(method.value for method in current.stale_methods)
-        _ = st.warning(
-            f"Recalculation required: {names}. Prior dependent outputs are hidden."
-        )
-    if not current.results and not current.failures:
-        return
-    if not current.stale_methods and not current.failures:
-        _ = st.success("Calculation complete.")
-    if current.results:
-        _ = st.caption("Wide comparison and result tables scroll horizontally.")
-        render_comparison(current.results, form.intake.observable_labels)
-    for method in form.methods:
-        result = _result_for_method(current.results, method)
-        method_failure = _failure_for_method(current.failures, method)
-        if result is not None:
-            _render_method_result(result, form, record.success)
-        elif method_failure is not None:
-            _ = st.subheader(method.value)
-            _ = st.error(method_failure.message)
-    _render_reproducibility(form, record.success)
-
-
-def _current_submission(
-    form: WorkbenchForm,
-    success: WorkbenchCalculationSuccess,
-) -> CurrentSubmission:
-    fingerprints = dict(success.fingerprints)
-    stale = tuple(
-        method
-        for method in form.methods
-        if fingerprints.get(method) != form.method_fingerprint(method)
-    )
-    current_methods = tuple(method for method in form.methods if method not in stale)
-    results = tuple(
-        result
-        for result in success.results
-        if _method_for_result(result) in current_methods
-    )
-    failures = tuple(
-        failure for failure in success.failures if failure.method in current_methods
-    )
-    return CurrentSubmission(results, failures, stale)
-
-
-def _render_method_result(
-    result: WorkbenchResult,
-    form: WorkbenchForm,
-    success: WorkbenchCalculationSuccess,
-) -> None:
-    match result:
-        case VMMAnalysis() as vmm:
-            render_vmm_result(vmm, success.dataset)
-        case MarkovBatchAnalysis() as markov:
-            render_markov_result(markov)
-        case HMMBatchAnalysis() as hmm:
-            render_hmm_result(hmm, form)
-        case ShannonBatchAnalysis() as shannon:
-            has_targets = any(
-                record.actual_target_index is not None
-                for record in success.dataset.records
+        methods = ", ".join(method.value for method in current.stale_methods)
+        _ = st.warning(f"Recalculation required: {methods}.")
+    with tabs[active_index]:
+        selection = render_workspace_selection(record.success.dataset)
+        subview = render_subview_control()
+        if not selection.selected_ids:
+            _ = st.info(
+                "Select at least one sequence identifier for Multiple scope."
             )
-            render_shannon_result(shannon, has_targets=has_targets)
+            return
+        current_record = WorkbenchCalculationRecord(
+            replace(record.success, results=current.results, failures=current.failures)
+        )
+        projected = project_record(current_record, selection)
+        match active_tab:
+            case WorkspaceTab.COMPARISON:
+                render_comparison_workspace(
+                    ComparisonWorkspaceContext(
+                        projected.success.results,
+                        form,
+                        selection.scope,
+                        subview,
+                    )
+                )
+                return
+            case WorkspaceTab.MARKOV:
+                _render_method_tab(
+                    MethodTabContext(
+                        MethodChoice.MARKOV,
+                        current,
+                        projected,
+                        form,
+                        selection.scope,
+                        subview,
+                    )
+                )
+                return
+            case WorkspaceTab.HMM:
+                _render_method_tab(
+                    MethodTabContext(
+                        MethodChoice.HMM,
+                        current,
+                        projected,
+                        form,
+                        selection.scope,
+                        subview,
+                    )
+                )
+                return
+            case WorkspaceTab.SHANNON:
+                _render_method_tab(
+                    MethodTabContext(
+                        MethodChoice.SHANNON,
+                        current,
+                        projected,
+                        form,
+                        selection.scope,
+                        subview,
+                    )
+                )
+                return
+        assert_never(active_tab)
 
 
-def _method_for_result(result: WorkbenchResult) -> MethodChoice:
-    match result:
-        case VMMAnalysis():
-            return MethodChoice.MARKOV
-        case MarkovBatchAnalysis():
-            return MethodChoice.MARKOV
-        case HMMBatchAnalysis():
-            return MethodChoice.HMM
-        case ShannonBatchAnalysis():
-            return MethodChoice.SHANNON
-
-
-def _result_for_method(
-    results: tuple[WorkbenchResult, ...],
-    method: MethodChoice,
-) -> WorkbenchResult | None:
-    return next(
-        (result for result in results if _method_for_result(result) is method), None
+def _render_uncalculated(active_tab: WorkspaceTab, form: WorkbenchForm) -> None:
+    if active_tab is WorkspaceTab.HMM and MethodChoice.HMM not in form.methods:
+        _ = st.info("HMM disabled for the current calculation.")
+        return
+    _ = st.info(
+        f"Not calculated: {active_tab.value}. Use Calculate selected methods."
     )
 
 
-def _failure_for_method(
-    failures: tuple[MethodCalculationFailure, ...],
-    method: MethodChoice,
-) -> MethodCalculationFailure | None:
-    return next((failure for failure in failures if failure.method is method), None)
-
-
-def _render_reproducibility(
-    form: WorkbenchForm,
-    success: WorkbenchCalculationSuccess,
-) -> None:
-    selected_methods = ", ".join(method.value for method in form.methods)
-    markov_details: tuple[str, ...] = ()
-    if MethodChoice.MARKOV in form.methods:
-        match form.markov.workflow:
-            case MarkovWorkflow.VMM:
-                smoothing = form.markov.vmm_smoothing()
-                markov_details = (
-                    f"- Markov workflow: {form.markov.workflow.value}",
-                    f"- VMM smoothing: {form.markov.vmm_smoothing_choice.value}",
-                    f"- VMM alpha: {format_ui_decimal(smoothing.alpha)}",
-                    f"- VMM minimum context support: {form.markov.minimum_support}",
-                    "- VMM backoff: deepest supported suffix, then shorter suffixes",
-                )
-            case MarkovWorkflow.FIRST_ORDER:
-                markov_details = (
-                    f"- Markov workflow: {form.markov.workflow.value}",
-                    "- Markov order: 1",
-                )
+def _render_method_tab(context: MethodTabContext) -> None:
+    method = context.method
+    if method not in context.form.methods:
+        message = (
+            "HMM disabled for the current calculation."
+            if method is MethodChoice.HMM
+            else f"{method.value} disabled for the current calculation."
+        )
+        _ = st.info(message)
+        return
+    if method in context.current.stale_methods:
+        return
+    result = result_for_method(context.projected.success.results, method)
+    if result is None:
+        failure = failure_for_method(context.current.failures, method)
+        if failure is not None:
+            _ = st.error(failure.message)
+        else:
+            _ = st.info("Not calculated.")
+        return
+    render_method_workspace(
+        MethodWorkspaceContext(
+            result,
+            context.form,
+            context.projected.success.dataset,
+            context.scope,
+            context.subview,
+        )
+    )
+    _render_selected_exports(method, context.projected, context.form)
     with st.expander("Reproducibility details"):
         _ = st.markdown(
             "\n".join(
                 (
-                    f"- Selected methods: {selected_methods}",
-                    f"- Parsed records: {len(success.dataset.records)}",
-                    "- Visible scientific precision: 3 decimal places",
+                    f"- Method: {method.value}",
                     joined_text(
                         (
-                            "- Raw export precision: unrounded float64 or at least ",
-                            "12 decimal places",
+                            "- Selected records: ",
+                            f"{len(context.projected.success.dataset.records)}",
                         )
                     ),
-                    *markov_details,
-                    "- Record ordering: deterministic submitted order",
-                    joined_text(
-                        (
-                            "- Evaluation targets score existing predictions and ",
-                            "never affect fitting",
-                        )
-                    ),
+                    "- Dataset role: training",
+                    "- Visible precision: exactly 3 decimal places",
+                    "- Raw export precision: unrounded or at least 12 decimal places",
+                    "- Ordering: deterministic submitted record order",
+                    "- Evaluation targets do not affect fitting or prediction",
                 )
             )
         )
+
+
+def _render_selected_exports(
+    method: MethodChoice,
+    projected: WorkbenchCalculationRecord,
+    form: WorkbenchForm,
+) -> None:
+    identifiers = tuple(
+        str(item.sequence_id) for item in projected.success.dataset.records
+    )
+    for artifact in selected_artifacts(projected, form, identifiers):
+        if _artifact_matches_method(artifact, method):
+            _ = st.download_button(
+                f"Download selected {artifact.name}",
+                data=artifact.data,
+                file_name=artifact.file_name,
+                mime=artifact.mime,
+                on_click="ignore",
+            )
+
+
+def _artifact_matches_method(
+    artifact: WorkspaceArtifact,
+    method: MethodChoice,
+) -> bool:
+    match method:
+        case MethodChoice.MARKOV:
+            return artifact.name.startswith("Markov") or artifact.name in {
+                "Context model export",
+                "Context evidence export",
+                "Evaluation export",
+            }
+        case MethodChoice.HMM:
+            return artifact.name.startswith("HMM")
+        case MethodChoice.SHANNON:
+            return False
+    assert_never(method)
