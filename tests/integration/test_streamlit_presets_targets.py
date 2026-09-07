@@ -1,11 +1,15 @@
 from pathlib import Path
 from typing import Final
 
+import pandas as pd
 from streamlit.testing.v1 import AppTest
 
 from binary_entropy.ui.state import ActualTargetChoice
 
 APP_PATH: Final = Path(__file__).parents[2] / "streamlit_app.py"
+TAB_KEY: Final = "workspace-method-tabs"
+SCOPE_KEY: Final = "workspace-sequence-scope"
+SUBVIEW_KEY: Final = "workspace-subview"
 IMPORTED_PRESET: Final = b"""{
   "schema_version": 1,
   "preset_name": "Imported model",
@@ -22,10 +26,22 @@ def _app() -> AppTest:
     assert not app.exception
     _ = app.multiselect[0].set_value(["Hidden Markov Model"])
     _ = app.run()
-    _ = next(button for button in app.button if button.label == "Continue").click()
+    assert not app.exception
+    return app
+
+
+def _select_workspace(app: AppTest, tab: str, subview: str) -> AppTest:
+    app.session_state[TAB_KEY] = tab
+    app.session_state[SCOPE_KEY] = "One"
+    app.session_state[SUBVIEW_KEY] = subview
     _ = app.run()
     assert not app.exception
     return app
+
+
+def _comparison(app: AppTest) -> pd.DataFrame:
+    app = _select_workspace(app, "Method Comparison", "Compare")
+    return next(item.value for item in app.dataframe if "Method" in item.value.columns)
 
 
 def test_app_when_valid_preset_is_loaded_updates_model_without_calculating() -> None:
@@ -50,8 +66,9 @@ def test_app_when_valid_preset_is_loaded_updates_model_without_calculating() -> 
     assert text_inputs["Observable A label"] == "Left"
     assert number_inputs["Initial probability for Quiet"].value == 0.25
     assert number_inputs["Derived probability for Active (1 - p)"].value == 0.75
-    assert any("no calculation was run" in item.value for item in app.success)
-    assert len(app.get("html")) == 1
+    assert not app.metric
+    assert not app.dataframe
+    assert not app.download_button
 
 
 def test_app_when_loaded_preset_is_reselected_preserves_imported_model() -> None:
@@ -108,7 +125,8 @@ def test_app_when_invalid_preset_is_loaded_preserves_current_model() -> None:
     )
     assert state.value == "Current state"
     assert any("could not be decoded" in item.value for item in app.error)
-    assert len(app.get("html")) == 1
+    assert not app.metric
+    assert not app.dataframe
 
 
 def test_app_when_lower_probability_target_is_selected_assesses_final_prediction() -> (
@@ -126,10 +144,11 @@ def test_app_when_lower_probability_target_is_selected_assesses_final_prediction
     _ = app.run()
 
     # Then
-    metrics = {metric.label: metric.value for metric in app.metric}
-    assert metrics["Actual next target"] == "A"
-    assert metrics["Actual-target probability"] == "0.403"
-    assert any("lower probability" in item.value for item in app.markdown)
+    comparison = _comparison(app)
+    assert comparison.loc[0, "P(next A)"] == "0.403"
+    assert comparison.loc[0, "P(next B)"] == "0.597"
+    assert comparison.loc[0, "Prediction"] == "B"
+    assert comparison.loc[0, "Target probability"] == "0.403"
 
 
 def test_app_when_modal_target_is_selected_uses_modal_wording() -> None:
@@ -145,7 +164,11 @@ def test_app_when_modal_target_is_selected_uses_modal_wording() -> None:
     _ = app.run()
 
     # Then
-    assert any("is modal" in item.value for item in app.markdown)
+    comparison = _comparison(app)
+    assert comparison.loc[0, "P(next A)"] == "0.403"
+    assert comparison.loc[0, "P(next B)"] == "0.597"
+    assert comparison.loc[0, "Prediction"] == "B"
+    assert comparison.loc[0, "Target probability"] == "0.597"
 
 
 def test_app_when_predictive_targets_are_tied_uses_tied_wording() -> None:
@@ -168,7 +191,12 @@ def test_app_when_predictive_targets_are_tied_uses_tied_wording() -> None:
     _ = app.run()
 
     # Then
-    assert any("probabilities are tied" in item.value for item in app.markdown)
+    comparison = _comparison(app)
+    assert comparison.loc[0, "P(next A)"] == "0.500"
+    assert comparison.loc[0, "P(next B)"] == "0.500"
+    assert comparison.loc[0, "Prediction"] == "A"
+    assert comparison.loc[0, "Target probability"] == "0.500"
+    assert comparison.loc[0, "Target surprisal (bits)"] == "1.000"
 
 
 def test_app_when_actual_target_has_zero_probability_labels_infinite_surprisal() -> (
@@ -190,5 +218,9 @@ def test_app_when_actual_target_has_zero_probability_labels_infinite_surprisal()
     _ = app.run()
 
     # Then
-    metrics = {metric.label: metric.value for metric in app.metric}
-    assert metrics["Realized surprisal (bits)"] == "infinity"
+    comparison = _comparison(app)
+    assert comparison.loc[0, "P(next A)"] == "1.000"
+    assert comparison.loc[0, "P(next B)"] == "0.000"
+    assert comparison.loc[0, "Prediction"] == "A"
+    assert comparison.loc[0, "Target probability"] == "0.000"
+    assert comparison.loc[0, "Target surprisal (bits)"] == "infinity"

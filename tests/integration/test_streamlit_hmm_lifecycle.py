@@ -10,15 +10,15 @@ ALL_METHODS: Final = [
     "Observed Shannon Entropy",
 ]
 METHODS_WITHOUT_HMM: Final = ["Markov Chain", "Observed Shannon Entropy"]
+TAB_KEY: Final = "workspace-method-tabs"
+SCOPE_KEY: Final = "workspace-sequence-scope"
+SUBVIEW_KEY: Final = "workspace-subview"
 
 
 def _markov_workspace() -> AppTest:
     app = AppTest.from_file(APP_PATH, default_timeout=10).run()
     assert not app.exception
     assert app.multiselect[0].value == ["Markov Chain"]
-    _ = next(button for button in app.button if button.label == "Continue").click()
-    _ = app.run()
-    assert not app.exception
     workflow = next(
         item for item in app.selectbox if item.label == "Markov workflow"
     )
@@ -37,6 +37,15 @@ def _calculate(app: AppTest) -> AppTest:
     return app
 
 
+def _select_workspace(app: AppTest, tab: str, subview: str) -> AppTest:
+    app.session_state[TAB_KEY] = tab
+    app.session_state[SCOPE_KEY] = "One"
+    app.session_state[SUBVIEW_KEY] = subview
+    _ = app.run()
+    assert not app.exception
+    return app
+
+
 def test_hmm_when_added_inside_workspace_rehydrates_example_and_calculates() -> None:
     # Given
     app = _markov_workspace()
@@ -45,6 +54,7 @@ def test_hmm_when_added_inside_workspace_rehydrates_example_and_calculates() -> 
     _ = app.multiselect[0].set_value(ALL_METHODS)
     _ = app.run()
     app = _calculate(app)
+    app = _select_workspace(app, "Method Comparison", "Compare")
 
     # Then
     labels = {
@@ -76,7 +86,11 @@ def test_hmm_when_added_inside_workspace_rehydrates_example_and_calculates() -> 
         item.value for item in app.dataframe if "Method" in item.value.columns
     )
     assert comparison["Method"].tolist() == ALL_METHODS
-    assert "Hidden Markov Model" in [item.value for item in app.subheader]
+    hmm_row = comparison.loc[comparison["Method"] == "Hidden Markov Model"].iloc[0]
+    assert hmm_row["P(next A)"] == "0.403"
+    assert hmm_row["P(next B)"] == "0.597"
+    assert hmm_row["Prediction"] == "B"
+    assert hmm_row["Predictive entropy (bits)"] == "0.973"
 
 
 def test_hmm_when_deselected_and_reselected_preserves_edited_source_state() -> None:
@@ -139,6 +153,7 @@ def test_hmm_when_followup_method_event_submits_empty_fields_restores_shadow() -
     _ = app.multiselect[0].set_value(ALL_METHODS)
     _ = app.run()
     app = _calculate(app)
+    app = _select_workspace(app, "Method Comparison", "Compare")
 
     # Then
     labels = {
@@ -171,21 +186,20 @@ def test_preset_name_when_changed_after_all_methods_calculate_stales_only_hmm() 
         "renamed model"
     )
     _ = app.run()
+    app = _select_workspace(app, "Method Comparison", "Compare")
 
     # Then
     assert not app.exception
     assert any("Hidden Markov Model" in item.value for item in app.warning)
-    assert "Markov Chain" in [item.value for item in app.subheader]
-    assert "Observed-symbol Shannon entropy" in [item.value for item in app.subheader]
-    assert "Hidden Markov Model" not in [item.value for item in app.subheader]
     comparison = next(
         item.value for item in app.dataframe if "Method" in item.value.columns
     )
     assert comparison["Method"].tolist() == [ALL_METHODS[0], ALL_METHODS[2]]
-    downloads = [item.label for item in app.download_button]
-    assert "Download Markov model JSON" in downloads
-    assert "Download Markov prefix CSV" in downloads
-    assert "Download Markov batch-summary CSV" in downloads
-    assert "Download HMM preset JSON" not in downloads
-    assert "Download HMM prefix CSV" not in downloads
-    assert "Download HMM candidate-summary CSV" not in downloads
+    assert comparison.loc[0, "P(next A)"] == "0.500"
+    assert comparison.loc[0, "P(next B)"] == "0.500"
+    assert comparison.loc[1, "Observed entropy (bits)"] == "0.985"
+
+    app = _select_workspace(app, "Hidden Markov Model", "Overview")
+    assert not app.metric
+    assert not app.dataframe
+    assert not any("HMM" in item.label for item in app.download_button)
