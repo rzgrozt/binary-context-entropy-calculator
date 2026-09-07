@@ -19,9 +19,13 @@ from binary_entropy.markov_types import (
 from binary_entropy.ui.markov_results import markov_transition_dataframe
 from binary_entropy.ui.text import joined_text
 from binary_entropy.ui.tokens import UI_NUMBER_FORMAT, format_ui_decimal
+from binary_entropy.ui.workspace_selection import SequenceScope
 
 
-def render_markov_model_evidence(analysis: MarkovBatchAnalysis) -> None:
+def render_markov_model_evidence(
+    analysis: MarkovBatchAnalysis,
+    scope: SequenceScope,
+) -> None:
     """Render transition evidence prominently and diagnostics secondarily."""
     models = tuple(record.model for record in analysis.records)
 
@@ -40,9 +44,14 @@ def render_markov_model_evidence(analysis: MarkovBatchAnalysis) -> None:
 
     _ = st.subheader("Learned Transition Pattern")
     _ = st.caption(
-        "These probabilities describe what was observed to follow each current "
-        "state. The row matching the current final state generates the "
-        "next-target prediction."
+        joined_text(
+            (
+                "These probabilities describe what was observed to follow each ",
+                "current ",
+                "state. The row matching the current final state generates the ",
+                "next-target prediction.",
+            )
+        )
     )
     _ = st.markdown("`T[i,j] = P(next state = j | current state = i)`")
 
@@ -52,27 +61,42 @@ def render_markov_model_evidence(analysis: MarkovBatchAnalysis) -> None:
                 _observed_start(record.sequence, analysis.model)
                 for record in analysis.records
             )
-            _render_transition_table(analysis.model)
-
-            with st.expander("Advanced Markov Statistics", expanded=False):
-                _render_advanced_statistics(
-                    analysis.model,
-                    observed_starts,
-                )
+            _render_fitted_model(
+                analysis.model,
+                observed_starts,
+                "Advanced Markov Statistics",
+            )
 
         case MarkovResultScope.PER_SEQUENCE:
-            for record in analysis.records:
-                _ = st.markdown(f"**Fitted model: {record.sequence_id}**")
-                _render_transition_table(record.model)
-
-                with st.expander(
-                    f"Advanced Markov Statistics — {record.sequence_id}",
-                    expanded=False,
-                ):
-                    _render_advanced_statistics(
+            match scope:
+                case SequenceScope.ONE:
+                    record = analysis.records[0]
+                    _ = st.markdown(f"**Fitted model: {record.sequence_id}**")
+                    _render_fitted_model(
                         record.model,
                         (_observed_start(record.sequence, record.model),),
+                        f"Advanced Markov Statistics — {record.sequence_id}",
                     )
+                case SequenceScope.MULTIPLE | SequenceScope.ALL:
+                    _ = st.info(
+                        joined_text(
+                            (
+                                "Select One sequence scope to inspect independently ",
+                                "fitted Markov model transition evidence and advanced ",
+                                "statistics.",
+                            )
+                        )
+                    )
+
+
+def _render_fitted_model(
+    model: MarkovModel,
+    observed_starts: tuple[str, ...],
+    expander_label: str,
+) -> None:
+    _render_transition_table(model)
+    with st.expander(expander_label, expanded=False):
+        _render_advanced_statistics(model, observed_starts)
 
 
 def _render_transition_table(model: MarkovModel) -> None:
@@ -127,13 +151,21 @@ def _render_advanced_statistics(
 
     if len(observed_starts) == 1:
         _ = st.caption(
-            f"Observed sequence start: {observed_starts[0]}. "
-            "This is not a next-target prediction."
+            joined_text(
+                (
+                    f"Observed sequence start: {observed_starts[0]}. ",
+                    "This is not a next-target prediction.",
+                )
+            )
         )
     else:
         _ = st.caption(
-            "This describes how often the submitted sequences begin with each "
-            "symbol. It is not a next-target prediction."
+            joined_text(
+                (
+                    "This describes how often the submitted sequences begin with each ",
+                    "symbol. It is not a next-target prediction.",
+                )
+            )
         )
 
     empirical = empirical_conditional_entropy(model.transition_counts)
@@ -190,13 +222,12 @@ def _render_advanced_statistics(
         ),
     )
 
+    estimation_method = model.estimation_method.value.replace("_", " ")
     _ = st.caption(
         joined_text(
             (
-                f"Estimation method: "
-                f"{model.estimation_method.value.replace('_', ' ')}. ",
-                f"Smoothing alpha: "
-                f"{format_ui_decimal(model.smoothing_alpha)}. ",
+                f"Estimation method: {estimation_method}. ",
+                f"Smoothing alpha: {format_ui_decimal(model.smoothing_alpha)}. ",
                 f"Transitions used: {model.source_transition_count}.",
             )
         )
