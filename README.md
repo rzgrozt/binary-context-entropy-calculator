@@ -16,7 +16,7 @@ uv run streamlit run streamlit_app.py
 
 ## Choose methods and provide data
 
-The setup screen selects **Markov Chain** by default. Choose any subset of:
+The persistent sidebar selects **Markov Chain** by default. Choose any subset of:
 
 - **Markov Chain**, with Variable-order Markov selected by default and First-order Markov available as a baseline.
 - **Hidden Markov Model**, a configured two-hidden-state, two-observable
@@ -304,7 +304,7 @@ exports.
 
 ## Architecture
 
-- `streamlit_app.py` provides setup, selected-method controls, explicit
+- `streamlit_app.py` provides persistent sidebar configuration, selected-method controls, explicit
   submission, stale-result handling, and rendering.
 - `records.py` and `batch_parsing.py` define independent records and single,
   multiline, TXT, and CSV intake boundaries.
