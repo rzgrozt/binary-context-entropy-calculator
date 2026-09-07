@@ -19,15 +19,17 @@ def render_probability_inputs(
     state_labels: tuple[str, str],
     observable_labels: tuple[str, str],
 ) -> ModelForm:
-    """Render three HMM expanders with one editable value per binary row."""
-    with st.expander("Initial hidden-state distribution", expanded=True):
+    """Render three HMM groups with one editable value per binary row."""
+    with st.container(key="hmm-initial-distribution"):
+        _ = st.markdown("**Initial hidden-state distribution**")
         initial = _probability_row(
             f"Initial probability for {state_labels[0]}",
             f"Derived probability for {state_labels[1]} (1 - p)",
             INITIAL_KEY,
             INITIAL_COMPLEMENT_KEY,
         )
-    with st.expander("Transition matrix", expanded=True):
+    with st.container(key="hmm-transition-matrix"):
+        _ = st.markdown("**Transition matrix**")
         _ = st.caption("Rows are current hidden states; columns are next states.")
         transition = tuple(
             _probability_row(
@@ -43,7 +45,8 @@ def render_probability_inputs(
             )
             for row in range(2)
         )
-    with st.expander("Emission matrix", expanded=True):
+    with st.container(key="hmm-emission-matrix"):
+        _ = st.markdown("**Emission matrix**")
         _ = st.caption("Rows are hidden states; columns are observed symbols.")
         emission = tuple(
             _probability_row(
