@@ -10,6 +10,9 @@ METHOD_OPTIONS: Final = [
     "Hidden Markov Model",
     "Observed Shannon Entropy",
 ]
+TAB_KEY: Final = "workspace-method-tabs"
+SCOPE_KEY: Final = "workspace-sequence-scope"
+SUBVIEW_KEY: Final = "workspace-subview"
 
 
 def _app() -> AppTest:
@@ -23,13 +26,18 @@ def _workspace(methods: list[str] | None = None) -> AppTest:
     if methods is not None:
         _ = app.multiselect[0].set_value(methods)
         _ = app.run()
-    _ = next(button for button in app.button if button.label == "Continue").click()
-    _ = app.run()
-    assert not app.exception
     workflow = next(
         item for item in app.selectbox if item.label == "Markov workflow"
     )
     _ = workflow.set_value("First-order Markov")
+    _ = app.run()
+    assert not app.exception
+    return app
+
+
+def _result_view(app: AppTest, tab: str, subview: str) -> AppTest:
+    app.session_state[TAB_KEY] = tab
+    app.session_state[SUBVIEW_KEY] = subview
     _ = app.run()
     assert not app.exception
     return app
@@ -44,7 +52,7 @@ def _calculate(app: AppTest) -> AppTest:
     return app
 
 
-def test_setup_when_launched_defaults_to_compact_markov_selection() -> None:
+def test_workspace_when_launched_defaults_to_markov_controls() -> None:
     # Given / When
     app = _app()
 
@@ -52,9 +60,8 @@ def test_setup_when_launched_defaults_to_compact_markov_selection() -> None:
     assert app.title[0].value == TITLE
     assert app.multiselect[0].options == METHOD_OPTIONS
     assert app.multiselect[0].value == ["Markov Chain"]
-    assert "Continue" in [button.label for button in app.button]
-    assert "Calculate selected methods" not in [button.label for button in app.button]
-    assert not app.number_input
+    assert "Calculate selected methods" in [button.label for button in app.button]
+    assert "Markov workflow" in [item.label for item in app.selectbox]
 
 
 def test_workspace_when_markov_is_selected_hides_hmm_controls() -> None:
@@ -78,9 +85,7 @@ def test_workspace_when_all_methods_are_selected_shows_hmm_complements() -> None
 
     # Then
     expander_labels = [item.label for item in app.expander]
-    assert "Initial hidden-state distribution" in expander_labels
-    assert "Transition matrix" in expander_labels
-    assert "Emission matrix" in expander_labels
+    assert "Hidden Markov Model settings" in expander_labels
     initial = {item.label: item for item in app.number_input}
     assert initial["Initial probability for State 1"].disabled is False
     assert initial["Derived probability for State 2 (1 - p)"].disabled is True
@@ -93,6 +98,8 @@ def test_first_order_markov_when_calculated_renders_fixture_and_downloads() -> N
 
     # When
     app = _calculate(app)
+    app.session_state[SCOPE_KEY] = "One"
+    app = _result_view(app, "Markov Chain", "Overview")
 
     # Then
     metrics = {metric.label: metric.value for metric in app.metric}
@@ -119,11 +126,16 @@ def test_markov_when_batch_is_calculated_preserves_independent_boundaries() -> N
 
     # When
     app = _calculate(app)
+    app = _result_view(app, "Markov Chain", "Evidence")
 
     # Then
     markdown = "\n".join(item.value for item in app.markdown)
-    assert "2 independent sequences" in markdown
-    assert "2 transitions" in markdown
+    assert "all 2 records" in markdown
+    transition = next(
+        item.value for item in app.dataframe if "Current state" in item.value.columns
+    )
+    assert transition["Count next A"].tolist() == [1, 0]
+    assert transition["Count next B"].tolist() == [0, 1]
 
 
 def test_markov_when_per_sequence_scope_shows_each_independent_fit() -> None:
@@ -143,14 +155,21 @@ def test_markov_when_per_sequence_scope_shows_each_independent_fit() -> None:
 
     # When
     app = _calculate(app)
+    app.session_state[SCOPE_KEY] = "One"
+    app.session_state["workspace-sequence-id"] = "sequence-001"
+    app = _result_view(app, "Markov Chain", "Evidence")
+    first_model = next(
+        item.value for item in app.dataframe if "Current state" in item.value.columns
+    )
+    app.session_state["workspace-sequence-id"] = "sequence-002"
+    app = _result_view(app, "Markov Chain", "Evidence")
+    second_model = next(
+        item.value for item in app.dataframe if "Current state" in item.value.columns
+    )
 
     # Then
-    model_frames = [
-        item.value for item in app.dataframe if "Current state" in item.value.columns
-    ]
-    assert len(model_frames) == 2
-    assert model_frames[0]["Count next A"].tolist() == [2, 1]
-    assert model_frames[1]["Count next A"].tolist() == [0, 1]
+    assert first_model["Count next A"].tolist() == [2, 1]
+    assert second_model["Count next A"].tolist() == [0, 1]
 
 
 def test_markov_when_mle_is_unavailable_smoothing_recovers_matrix() -> None:
@@ -163,6 +182,7 @@ def test_markov_when_mle_is_unavailable_smoothing_recovers_matrix() -> None:
 
     # When
     app = _calculate(app)
+    app = _result_view(app, "Markov Chain", "Evidence")
 
     # Then
     assert any("MLE unavailable" in item.value for item in app.warning)
@@ -175,6 +195,7 @@ def test_markov_when_mle_is_unavailable_smoothing_recovers_matrix() -> None:
 
     # When
     app = _calculate(app)
+    app = _result_view(app, "Markov Chain", "Evidence")
 
     # Then
     assert not any("MLE unavailable" in item.value for item in app.warning)
@@ -202,12 +223,9 @@ def test_all_methods_when_calculated_compare_predictive_and_descriptive_rows() -
 
     # When
     app = _calculate(app)
+    app = _result_view(app, "Method Comparison", "Compare")
 
     # Then
-    subheaders = [item.value for item in app.subheader]
-    assert "Markov Chain" in subheaders
-    assert "Hidden Markov Model" in subheaders
-    assert "Observed-symbol Shannon entropy" in subheaders
     frames = [item.value for item in app.dataframe]
     comparison = next(frame for frame in frames if "Method" in frame.columns)
     shannon = comparison.loc[comparison["Method"] == "Observed Shannon Entropy"].iloc[0]
@@ -219,6 +237,7 @@ def test_all_methods_when_calculated_compare_predictive_and_descriptive_rows() -
 def test_results_when_input_changes_hide_stale_numbers_and_downloads() -> None:
     # Given
     app = _calculate(_workspace())
+    app = _result_view(app, "Markov Chain", "Overview")
     assert app.metric
 
     # When

@@ -5,18 +5,26 @@ from streamlit.testing.v1 import AppTest
 
 APP_PATH: Final = Path(__file__).parents[2] / "streamlit_app.py"
 TARGET_LABEL: Final = "Optional observed next target — for surprisal calculation only"
+TAB_KEY: Final = "workspace-method-tabs"
+SCOPE_KEY: Final = "workspace-sequence-scope"
+SUBVIEW_KEY: Final = "workspace-subview"
 
 
 def _workspace() -> AppTest:
     app = AppTest.from_file(APP_PATH, default_timeout=10).run()
     assert not app.exception
-    _ = next(button for button in app.button if button.label == "Continue").click()
-    _ = app.run()
-    assert not app.exception
     workflow = next(
         item for item in app.selectbox if item.label == "Markov workflow"
     )
     _ = workflow.set_value("First-order Markov")
+    _ = app.run()
+    assert not app.exception
+    return app
+
+
+def _result_view(app: AppTest, subview: str) -> AppTest:
+    app.session_state[TAB_KEY] = "Markov Chain"
+    app.session_state[SUBVIEW_KEY] = subview
     _ = app.run()
     assert not app.exception
     return app
@@ -68,11 +76,16 @@ def test_txt_upload_when_calculated_preserves_physical_line_boundaries() -> None
 
     # When
     app = _calculate(app)
+    app = _result_view(app, "Evidence")
 
     # Then
     text = "\n".join(item.value for item in app.markdown)
-    assert "2 independent sequences" in text
-    assert "2 transitions" in text
+    assert "all 2 records" in text
+    transition = next(
+        item.value for item in app.dataframe if "Current state" in item.value.columns
+    )
+    assert transition["Count next A"].tolist() == [1, 0]
+    assert transition["Count next B"].tolist() == [0, 1]
 
 
 def test_batch_errors_when_calculated_show_one_atomic_aggregate_failure() -> None:
@@ -117,6 +130,7 @@ def test_csv_upload_when_present_exposes_explicit_columns_and_row_targets() -> N
     _ = selectors["Target column (optional)"].set_value("target")
     _ = app.run()
     app = _calculate(app)
+    app = _result_view(app, "Compare")
 
     # Then
     frames = [item.value for item in app.dataframe]
@@ -139,6 +153,8 @@ def test_observable_labels_when_they_contain_spaces_parse_as_whole_symbols() -> 
 
     # When
     app = _calculate(app)
+    app.session_state[SCOPE_KEY] = "One"
+    app = _result_view(app, "Overview")
 
     # Then
     metrics = {metric.label: metric.value for metric in app.metric}
