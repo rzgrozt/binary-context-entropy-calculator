@@ -10,3 +10,9 @@ htmlcov/
 build/
 dist/
 *.egg-info/
+
+# Local editor and generated review artifacts
+/.vscode/
+/architecture_snapshot.txt
+/project_snapshot.txt
+/workbench-final-*.png
