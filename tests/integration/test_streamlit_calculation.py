@@ -1,10 +1,14 @@
 from pathlib import Path
 from typing import Final
 
+import pytest
 from streamlit.testing.v1 import AppTest
 
 APP_PATH: Final = Path(__file__).parents[2] / "streamlit_app.py"
 HMM_METHOD: Final = ["Hidden Markov Model"]
+TAB_KEY: Final = "workspace-method-tabs"
+SCOPE_KEY: Final = "workspace-sequence-scope"
+SUBVIEW_KEY: Final = "workspace-subview"
 
 
 def _app() -> AppTest:
@@ -12,7 +16,14 @@ def _app() -> AppTest:
     assert not app.exception
     _ = app.multiselect[0].set_value(HMM_METHOD)
     _ = app.run()
-    _ = next(button for button in app.button if button.label == "Continue").click()
+    assert not app.exception
+    return app
+
+
+def _select_workspace(app: AppTest, tab: str, subview: str) -> AppTest:
+    app.session_state[TAB_KEY] = tab
+    app.session_state[SCOPE_KEY] = "One"
+    app.session_state[SUBVIEW_KEY] = subview
     _ = app.run()
     assert not app.exception
     return app
@@ -27,9 +38,16 @@ def test_app_when_hmm_workspace_opens_has_inputs_but_no_calculated_outputs() -> 
         "Binary Sequence Probability, Prediction & Entropy Workbench"
     )
     assert "Calculate selected methods" in [button.label for button in app.button]
-    assert len(app.get("html")) == 1
+    assert [tab.label for tab in app.tabs] == [
+        "Method Comparison",
+        "Markov Chain",
+        "Hidden Markov Model",
+        "Observed Shannon Entropy",
+    ]
     assert any("not calculated" in notice.value.lower() for notice in app.info)
-    assert "Download prefix CSV" not in [item.label for item in app.download_button]
+    assert not app.metric
+    assert not app.dataframe
+    assert not app.download_button
 
 
 def test_app_when_calculate_is_clicked_renders_hand_sequence_outputs() -> None:
@@ -41,15 +59,22 @@ def test_app_when_calculate_is_clicked_renders_hand_sequence_outputs() -> None:
         button for button in app.button if button.label == "Calculate selected methods"
     ).click()
     _ = app.run()
+    app = _select_workspace(app, "Hidden Markov Model", "Overview")
 
     # Then
     assert not app.exception
-    assert any(notice.value == "Calculation complete." for notice in app.success)
-    assert any(
-        metric.label == "Context depth" and metric.value == "7" for metric in app.metric
-    )
-    assert "Download HMM prefix CSV" in [item.label for item in app.download_button]
-    assert "Download HMM candidate-summary CSV" in [
+    metrics = {metric.label: metric.value for metric in app.metric}
+    assert metrics == {
+        "Final P(next A)": "0.403",
+        "Final P(next B)": "0.597",
+        "Prediction": "B",
+        "Predictive entropy (bits)": "0.973",
+        "Sequence depth": "7",
+    }
+    assert "Download selected HMM prefix CSV — sequence-001" in [
+        item.label for item in app.download_button
+    ]
+    assert "Download selected HMM candidate-summary CSV — sequence-001" in [
         item.label for item in app.download_button
     ]
 
@@ -87,15 +112,18 @@ def test_app_when_sequence_is_empty_calculates_depth_zero() -> None:
         button for button in app.button if button.label == "Calculate selected methods"
     ).click()
     _ = app.run()
+    app = _select_workspace(app, "Hidden Markov Model", "Evidence")
 
     # Then
     assert not app.exception
-    assert any(
-        metric.label == "Context depth" and metric.value == "0" for metric in app.metric
-    )
-    assert any(
-        "hidden posterior is unavailable" in item.value.lower() for item in app.info
-    )
+    evidence = app.dataframe[0].value
+    assert evidence["Depth"].tolist() == [0]
+    assert evidence.loc[0, "Observed context"] == "(empty prefix)"
+    assert evidence.loc[0, "P(next A)"] == pytest.approx(0.62)
+    assert evidence.loc[0, "P(next B)"] == pytest.approx(0.38)
+    assert evidence.loc[0, "Next-hidden State 1"] == pytest.approx(0.6)
+    assert evidence.loc[0, "Next-hidden State 2"] == pytest.approx(0.4)
+    assert evidence.loc[0, "Posterior status"] == "Unavailable before observation"
 
 
 def test_app_when_sequence_is_impossible_reports_zero_likelihood() -> None:
@@ -114,6 +142,7 @@ def test_app_when_sequence_is_impossible_reports_zero_likelihood() -> None:
         button for button in app.button if button.label == "Calculate selected methods"
     ).click()
     _ = app.run()
+    app = _select_workspace(app, "Hidden Markov Model", "Overview")
 
     # Then
     assert not app.exception
@@ -171,15 +200,25 @@ def test_app_when_calculated_input_changes_replaces_outputs_with_stale_notice() 
     assert "Download HMM candidate-summary CSV" not in labels
 
 
-def test_app_always_states_definitions_and_first_order_warning() -> None:
-    # Given / When
+def test_app_when_hmm_evidence_opens_encodes_filtering_conventions() -> None:
+    # Given
     app = _app()
 
+    # When
+    _ = next(
+        button for button in app.button if button.label == "Calculate selected methods"
+    ).click()
+    _ = app.run()
+    app = _select_workspace(app, "Hidden Markov Model", "Evidence")
+
     # Then
-    all_markdown = "\n".join(item.value for item in app.markdown)
-    assert "depth 0 uses q1=pi E without transition" in all_markdown
-    assert "it predicts from current state" in all_markdown
-    assert "longer history affects fitted estimates" in all_markdown
-    assert (
-        "not directly conditioned upon unless higher order is selected" in all_markdown
+    evidence = app.dataframe[0].value
+    assert evidence["Depth"].tolist() == list(range(8))
+    assert evidence.loc[0, "Observed context"] == "(empty prefix)"
+    assert evidence.loc[0, "Next-hidden State 1"] == pytest.approx(0.6)
+    assert evidence.loc[0, "P(next A)"] == pytest.approx(0.62)
+    assert evidence.loc[1, "Posterior State 1"] == pytest.approx(27 / 31)
+    assert evidence.loc[1, "Next-hidden State 1"] == pytest.approx(
+        0.635483870967742
     )
+    assert evidence.loc[1, "P(next A)"] == pytest.approx(0.644838709677419)
