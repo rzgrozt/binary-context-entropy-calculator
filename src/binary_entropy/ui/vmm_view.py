@@ -6,6 +6,7 @@ from typing import Final
 import streamlit as st
 
 from binary_entropy.records import SequenceDataset, SequenceRecord
+from binary_entropy.ui.help_text import UI_HELP
 from binary_entropy.ui.text import joined_text
 from binary_entropy.ui.tokens import format_ui_decimal
 from binary_entropy.ui.vmm_artifacts import render_vmm_artifacts
@@ -138,6 +139,7 @@ def _render_record(
         (
             "Effective predictive context depth",
             _integer_display(record.effective_context_depth),
+            UI_HELP["effective_depth"],
         ),
         (
             "Actual context used",
@@ -146,27 +148,47 @@ def _render_record(
                 if record.context_used is None
                 else vmm_context_label(record.context_used, labels)
             ),
+            UI_HELP["context_depth"],
         ),
-        ("Support count", _integer_display(record.support_count)),
-        (f"P(next {labels[0]})", _decimal_display(record.probability_a)),
-        (f"P(next {labels[1]})", _decimal_display(record.probability_b)),
-        ("Predicted target", vmm_prediction_label(record, labels)),
+        (
+            "Support count",
+            _integer_display(record.support_count),
+            UI_HELP["context_support"],
+        ),
+        (
+            f"P(next {labels[0]})",
+            _decimal_display(record.probability_a),
+            UI_HELP["probability_a"],
+        ),
+        (
+            f"P(next {labels[1]})",
+            _decimal_display(record.probability_b),
+            UI_HELP["probability_b"],
+        ),
+        (
+            "Predicted target",
+            vmm_prediction_label(record, labels),
+            UI_HELP["prediction"],
+        ),
         (
             "Predictive Shannon entropy (bits)",
             _decimal_display(record.predictive_entropy_bits),
+            UI_HELP["predictive_entropy"],
         ),
         (
             f"Surprisal of {labels[0]} (bits)",
             _decimal_display(record.surprisal_a_bits),
+            UI_HELP["surprisal"],
         ),
         (
             f"Surprisal of {labels[1]} (bits)",
             _decimal_display(record.surprisal_b_bits),
+            UI_HELP["surprisal"],
         ),
     )
     columns = st.columns(3)
-    for index, (label, value) in enumerate(metrics):
-        _ = columns[index % 3].metric(label, value)
+    for index, (label, value, help_text) in enumerate(metrics):
+        _ = columns[index % 3].metric(label, value, help=help_text)
 
     if record.probability_a is None or record.probability_b is None:
         match context.smoothing:
@@ -249,12 +271,14 @@ def _render_target(
         "Unavailable"
         if assessment is None
         else format_ui_decimal(assessment.probability),
+        help="Model probability assigned to the supplied observed target.",
     )
     _ = columns[2].metric(
         "Actual-target surprisal (bits)",
         "Unavailable"
         if assessment is None
         else format_ui_decimal(assessment.surprisal_bits),
+        help=UI_HELP["target_surprisal"],
     )
     _ = columns[3].metric(
         "Target assessment",

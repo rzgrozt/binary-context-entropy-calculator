@@ -5,6 +5,7 @@ from typing import Final
 import streamlit as st
 
 from binary_entropy.markov_types import MarkovPredictionMode, MarkovResultScope
+from binary_entropy.ui.help_text import UI_HELP
 from binary_entropy.ui.hmm_session import (
     PRESET_NAME_KEY,
     STATE_0_KEY,
@@ -52,6 +53,7 @@ def render_markov_controls() -> MarkovControls:
         "Markov workflow",
         options=tuple(workflow.value for workflow in MarkovWorkflow),
         key=MARKOV_WORKFLOW_KEY,
+        help=UI_HELP["markov_workflow"],
     )
     workflow = MarkovWorkflow(workflow_value or MarkovWorkflow.VMM.value)
 
@@ -76,6 +78,7 @@ def render_markov_controls() -> MarkovControls:
                 "VMM smoothing",
                 options=tuple(choice.value for choice in VMMSmoothingChoice),
                 key=VMM_SMOOTHING_KEY,
+                help=UI_HELP["vmm_smoothing"],
             )
             vmm_smoothing_choice = VMMSmoothingChoice(
                 smoothing_value or VMMSmoothingChoice.KT.value
@@ -88,6 +91,7 @@ def render_markov_controls() -> MarkovControls:
                     step=0.001,
                     format=UI_NUMBER_FORMAT,
                     key=VMM_ALPHA_KEY,
+                    help=UI_HELP["additive_smoothing"],
                 )
             minimum_support = st.number_input(
                 "Minimum context support",
@@ -95,6 +99,7 @@ def render_markov_controls() -> MarkovControls:
                 value=2,
                 step=1,
                 key=VMM_SUPPORT_KEY,
+                help=UI_HELP["minimum_support"],
             )
             _ = st.caption(
                 joined_text(
@@ -109,6 +114,7 @@ def render_markov_controls() -> MarkovControls:
                 "Estimation method",
                 options=tuple(option.value for option in ESTIMATION_OPTIONS),
                 key=MARKOV_ESTIMATION_KEY,
+                help=UI_HELP["markov_estimation"],
             )
             estimation = MarkovEstimationChoice(
                 estimation_value
@@ -128,6 +134,7 @@ def render_markov_controls() -> MarkovControls:
                 "Prefix prediction mode",
                 options=(FIXED_PREFIX_LABEL, CUMULATIVE_PREFIX_LABEL),
                 key=MARKOV_PREFIX_KEY,
+                help=UI_HELP["markov_prefix_mode"],
             )
             if prefix_value == CUMULATIVE_PREFIX_LABEL:
                 prediction_mode = MarkovPredictionMode.CUMULATIVE_PREFIX
@@ -152,6 +159,7 @@ def render_markov_controls() -> MarkovControls:
         "Markov result scope",
         options=(POOLED_SCOPE_LABEL, PER_SEQUENCE_SCOPE_LABEL),
         key=MARKOV_SCOPE_KEY,
+        help=UI_HELP["result_scope"],
     )
     result_scope = (
         MarkovResultScope.PER_SEQUENCE
@@ -187,7 +195,7 @@ def default_markov_controls() -> MarkovControls:
 def render_hmm_controls(observable_labels: tuple[str, str]) -> tuple[ModelForm, str]:
     """Render state labels, complement rows, and schema-v1 preset controls."""
     hydrate_hmm_widgets()
-    _ = st.subheader("Hidden Markov Model controls")
+    _ = st.subheader("Hidden Markov Model controls", help=UI_HELP["hmm_configured"])
     state_columns = st.columns(2)
     state_0 = state_columns[0].text_input("Hidden state 1 label", key=STATE_0_KEY)
     state_1 = state_columns[1].text_input("Hidden state 2 label", key=STATE_1_KEY)

@@ -2,7 +2,7 @@
 
 Status: Binding implementation contract
 
-Product surface: A dark, compact, responsive Streamlit workbench for comparing binary sequence entropy methods across one sequence or a batch.
+Product surface: A dark, compact, responsive Streamlit workbench with Analyzer and Stimulus Search workspace modes.
 
 ## 1. Authority, Scope, and Product Character
 
@@ -14,7 +14,7 @@ This contract governs visual, interaction, accessibility, and scientific present
 4. Compact usability.
 5. Visual design.
 
-The workbench serves researchers who need to configure only the analysis that applies, submit one sequence or a batch, compare selected methods, inspect exact values, and export raw scientific results. It has the restrained, operational information structure of an established research tool. It does not copy any brand, component library, logo, or product copy.
+The workbench serves researchers who need either to analyze submitted binary sequences or to search a reproducible bounded candidate sample, inspect exact values, and export raw scientific results. It has the restrained, operational information structure of an established research tool. It does not copy any brand, component library, logo, or product copy.
 
 The interface must not imply that a descriptive statistic is a next target prediction, that a fitted model is available when it cannot be estimated, or that an evaluation target influenced the calculation. Visual polish supports inspection. It never obscures assumptions, validation, units, precision, or unavailable states.
 
@@ -27,10 +27,11 @@ The interface must not imply that a descriptive statistic is a next target predi
 5. Results distinguish pooled and per sequence calculations while presenting accepted records through persistent One, Multiple, and All sequence scopes; compare selected methods; and expose each included result method through a tracked horizontal tab.
 6. Results include visual summaries, exact value tables, charts, warnings, reproducibility details, and raw exports.
 7. An optional evaluation target is assessed only against an already computed final prediction. It is not an input to fitting, selection, pooling, or prediction.
+8. A top-level workspace mode selector exposes exactly `Analyzer` and `Stimulus Search`. Analyzer retains the existing method, intake, result, and export contract. Stimulus Search provides the staged workflow in Section 2.6.
 
 ### 1.2 Explicit exclusions
 
-This contract does not add simulation settings, unlocked HMM probability rows, marketing content, decorative media, or custom interaction that duplicates a usable native Streamlit control. Markov controls are limited to the workflows, estimation choices, and evidence states defined in Section 2.1.1. Suffix backoff is an automatic visible outcome, not a control.
+This contract does not add simulation settings, unlocked HMM probability rows, marketing content, decorative media, or custom interaction that duplicates a usable native Streamlit control. Markov controls are limited to the workflows, estimation choices, and evidence states defined in Section 2.1.1. Suffix backoff is an automatic visible outcome, not a control. Stimulus Search is bounded sampling, filtering, ranking, optional complement analysis and matching, separate target assignment, descriptive validation, and export; it is not exhaustive search when the configured sample does not cover the universe.
 
 ### 1.3 Voice and content
 
@@ -111,6 +112,18 @@ The visual precision policy is fixed at exactly three decimal places for finite 
 Visual formatting does not alter the source value. Streamlit data columns should use a three decimal display format, such as `%.3f`, while retaining source values for sort, search, charts, and export. Never show normal formatted output for `NaN`, positive infinity, or negative infinity. State the condition and preserve it only where raw scientific export requires a documented representation.
 
 Machine readable CSV, TXT where applicable, and JSON exports preserve raw values at a minimum of 12 decimal places, or the exact available calculation representation when more precision is retained. Export headers name units, method, sequence scope, and precision. Display formatting and export serialization must use separate paths so three decimal UI rounding cannot reach raw export values.
+
+### 2.6 Stimulus Search scientific contract
+
+Stimulus Search uses canonical internal symbols `0` and `1`. User-visible sequences, predictions, targets, tables, and CSV exports use `A` and `B`. `symbol_mapping` records presentation metadata only; it never changes canonical values, generation, VMM fitting, filtering, ranking, matching, or target assignment.
+
+The staged workflow is fixed:
+
+1. **Search.** Configure sequence length, desired count, candidate limit, seed, per-sequence VMM settings, optional hard constraints, and optional weighted absolute-distance preferences. Sequence length is at most 32, candidate limit is at most 5,000, seed is from 0 through `2**63 - 1`, and desired count is positive and no greater than candidate limit. A local seeded generator samples without replacement from the binary universe, bounded by the smaller of candidate limit and universe size. The complete sampled set is analyzed and evaluated; search must not stop after enough accepted candidates are found.
+2. **Filter and rank.** Every candidate is an independent sequence boundary and is analyzed by reusing the public VMM Analyzer with per-sequence scope. No context, count, transition, fit, or evidence crosses candidate boundaries. Hard constraints reject candidates and are never loosened automatically. Accepted candidates are ranked by configured weighted absolute distances, then stable stimulus identifier. A search is `complete` only when selected count equals desired count; otherwise it is `partial` with `candidate_limit` or `universe_exhausted` as the reason. Show evaluated, accepted, selected, and requested counts plus each failed hard constraint's count and frequency.
+3. **Optional complement and matching.** Explicit complements invert canonical `0/1` symbols and are analyzed as new independent records under the same search VMM configuration. Matching greedily pairs opposite modal predictions only when every configured tolerance is met; explicit complements are preferred before total distance and stable identifier. Ties and unavailable predictions remain unmatched. Matching never alters search acceptance, rank, or constraints, and unmatched candidates remain visible.
+4. **Target assignment and QC.** Target assignment is a separate explicit action over the chosen candidate set, uses its own recorded seed, and balances expected versus unexpected assignments and A versus B targets as closely as the available decisive predictions permit. Targets do not influence generation, VMM fitting, search constraints, ranking, complement analysis, or matching. When both probabilities exist but are tied, `predicted_target_index` is `None`; assignment labels congruency `tie` and balances A/B targets across ties. Descriptive validation reports prediction, tie, unavailable, assignment, congruency, and metric summaries plus named imbalance flags. It is quality control, not held-out, causal, or inferential validation.
+5. **Inspect and export.** A selected candidate exposes canonical-independent display sequence, descriptive metrics, probabilities, modal prediction or tie, predictive entropy, effective context depth, context, support, A/B surprisal, every VMM depth row, rank, optional pair/group fields, and assigned-target fields when present. Four raw-precision artifacts are provided: Candidate CSV for every accepted candidate in rank order and selected status; Scientific CSV for every retained VMM evidence row; Reproducibility configuration JSON for the exact stored search snapshot and any supplied matching, assignment, and validation metadata; and Experiment-ready CSV for the explicitly chosen, matched or assigned candidate set. No visible table bound may truncate these exports.
 
 ## 3. Design System Tokens
 
@@ -221,20 +234,18 @@ Use a maximum of the three defined comparison series at once. Distinguish method
 
 ### 4.1 Persistent sidebar and workspace source order
 
-The application is one selector-driven research workbench, not a setup gate followed by a separate results document. Configuration remains available before and after calculation. Use native `st.sidebar` for the persistent desktop rail and its native drawer behavior on narrow screens. Use native Streamlit controls wherever they meet the semantic requirement; narrowly scoped CSS may map tokens and hierarchy but must not depend on generated class names, undocumented DOM depth, or unsupported sticky behavior.
+The application is one selector-driven research workbench, not a setup gate followed by a separate results document. A visible top-level native single-choice workspace mode selector exposes exactly `Analyzer` and `Stimulus Search`, with Analyzer initially selected. Mode switching is presentation-only: each mode retains its own current immutable snapshot and form/session state, performs no analysis or search, and never converts, clears, mutates, or marks the sibling mode's snapshot stale. Configuration remains available before and after calculation or search. Use native `st.sidebar` for the persistent desktop rail and its native drawer behavior on narrow screens. Use native Streamlit controls wherever they meet the semantic requirement; narrowly scoped CSS may map tokens and hierarchy but must not depend on generated class names, undocumented DOM depth, or unsupported sticky behavior.
 
 The semantic and keyboard source order is:
 
-1. Sidebar identity and concise purpose.
-2. Sidebar Analysis methods section, active method controls, Training data intake, optional evaluation target, validation, and `Calculate selected methods`.
-3. Sidebar calculation status and complete export sections.
-4. Main workspace title, current calculation summary, and scientific notices.
-5. Tracked horizontal tabs in the fixed order Method Comparison, Markov Chain, Hidden Markov Model, Observed Shannon Entropy.
-6. Persistent sequence scope and sequence selector.
-7. Overview, Compare, and Evidence subview control.
-8. The active selector projection, selected-scope exports, reproducibility details, and supporting help.
+1. Sidebar identity, concise purpose, and workspace mode selector.
+2. Active mode controls, validation, and its explicit primary action.
+3. Active mode status and complete export sections.
+4. Main workspace title, current immutable snapshot summary, and scientific notices.
+5. Active mode navigation and bounded result projection.
+6. Selected detail, exports, reproducibility details, and supporting help.
 
-Method Comparison is available whenever the current calculation has at least one valid result. Each method-specific tab remains in the fixed order and preserves its disabled, uncalculated, unavailable, or not applicable explanation as appropriate. Methods are not rendered as vertically stacked full sections. Switching a tracked tab changes only the visible projection of stored results.
+Within Analyzer, the source order and result architecture remain unchanged: tracked horizontal tabs in the fixed order Method Comparison, Markov Chain, Hidden Markov Model, Observed Shannon Entropy; persistent sequence scope and sequence selector; Overview, Compare, and Evidence; then the active projection, selected-scope exports, reproducibility details, and help. Method Comparison is available whenever the current calculation has at least one valid result. Each method-specific tab preserves its disabled, uncalculated, unavailable, or not applicable explanation as appropriate. Methods are not rendered as vertically stacked full sections. Switching a tracked tab changes only the visible projection of stored results.
 
 ### 4.2 Selector-driven result architecture
 
@@ -264,6 +275,14 @@ At intermediate widths, prefer reflow over compressed labels, clipped tabs, or n
 
 The browser document owns vertical scrolling. The sidebar follows native Streamlit scrolling and drawer behavior; the workspace, cards, tables, charts, expanders, tab bodies, and result projections must not add nested vertical scroll regions. Data tables may use horizontal overflow only for semantic columns that cannot reflow without losing meaning. An overflow wrapper needs a visible instruction, a keyboard-reachable focus target, and a clear focus indicator. Long identifiers and unbroken strings must wrap with `overflow-wrap: anywhere` or use an accessible visible truncation treatment with the full text available, and must never widen the page.
 
+### 4.5 Stimulus Search workspace architecture
+
+Stimulus Search uses compact native Streamlit controls and the existing tokens. It adds no custom CSS token unless a demonstrated requirement cannot resolve to Section 3. Its user-visible stages appear in task order: Search configuration; Search status and violations; Candidate table; Selected candidate detail; optional Complements and matching; Target assignment and quality control; Exports and reproducibility. Later stages remain disabled or show a concise prerequisite until their required immutable search snapshot or chosen set exists.
+
+The candidate table uses the existing bounded comparison-table contract and shows at most `--limit-comparison-rows` accepted candidates in deterministic rank order, with `Showing N of M rows` and a route to Candidate CSV when truncated. It includes selection state, stimulus ID, A/B sequence, rank score, modal prediction or tie, probability, entropy in bits, effective depth, support, and compact composition, switching, and run metrics. Selecting one row changes only the detail projection. The selected detail includes every field and VMM depth evidence specified in Section 2.6, using the existing evidence-row bound and Scientific CSV for completeness.
+
+Optional complement generation and matching are explicit secondary actions. Show original/complement identity, pair ID, group ID, total distance, tolerances, matched pair count, and bounded unmatched list; never imply that every complement qualifies or that matching changes the search. Target assignment is a separate secondary action after the chosen set is explicit. Its assignment seed and resulting target fields are stored separately from search configuration. The QC summary shows descriptive min/mean/max metric summaries, predicted A/B, tie and unavailable counts, expected/unexpected/tie/unassigned target counts, and each imbalance flag in text. No target control appears in Search configuration.
+
 ## 5. Reusable Primitives and States
 
 ### 5.1 Shared state language
@@ -289,7 +308,7 @@ The browser document owns vertical scrolling. The sidebar follows native Streaml
 
 **Use for:** persistent configuration, current calculation status, and complete exports.
 
-**Anatomy:** visible section heading, compact helper text only where necessary, native controls in task order, subtle divider, and local status or validation text. The Analysis methods, Method controls, Training data, Calculation status, and Complete exports sections remain discoverable in the same order. The sidebar is not a setup screen and does not disappear after calculation.
+**Anatomy:** visible section heading, compact helper text only where necessary, native controls in task order, subtle divider, and local status or validation text. In Analyzer, the Analysis methods, Method controls, Training data, Calculation status, and Complete exports sections remain discoverable in the same order. In Stimulus Search, the stages follow Section 4.5. The sidebar is not a setup screen and does not disappear after calculation or search.
 
 **States:** collapsed sidebar sections retain visible native labels. A section with an error identifies its affected method or record without turning the entire sidebar into an error state. On narrow screens the native drawer restores focus logically when opened and closed. Sidebar controls persist across presentation-only selector changes.
 
@@ -373,7 +392,7 @@ Experimental Markov downloads are separately named `Context model export`, `Cont
 
 The reproducibility panel exposes selected methods, method assumptions, configured HMM values when used, Markov workflow, requested and actual depths, estimation rule, smoothing alpha, support and sparse rules, automatic suffix-backoff outcomes and reasons, availability, training dataset role, parsed record counts, accepted and rejected identifiers, sequence lengths, pooled rule, in-sample target assessment status, units, visible precision, raw export precision, stable ordering, and application or calculation version when recorded. Never claim a seed, version, dependency fact, held-out evaluation, stationary result, or entropy-rate interpretation that is not recorded.
 
-**States:** exports remain disabled with a visible reason until valid current content exists. An uncalculated or disabled HMM has no enabled HMM result export; a valid HMM preset export follows its existing independent readiness contract. A stale computational change disables every dependent export. Export failure retains the action and shows a specific notice. File names are descriptive and deterministic, not timestamp dependent. The calculation action remains the sole filled primary action.
+**States:** exports remain disabled with a visible reason until valid current content exists. An uncalculated or disabled HMM has no enabled HMM result export; a valid HMM preset export follows its existing independent readiness contract. A stale computational change disables every dependent export. Export failure retains the action and shows a specific notice. File names are descriptive and deterministic, not timestamp dependent. The active mode has one filled primary action: Analyzer uses `Calculate selected methods`; Stimulus Search uses `Search stimuli`.
 
 ### 5.13 Help expander
 
@@ -381,9 +400,19 @@ The reproducibility panel exposes selected methods, method assumptions, configur
 
 **States and rules:** critical validation, MLE availability, and stale state information never live only in an expander or inactive subview. Native triggers have visible names, keyboard support, and focus treatment where Streamlit permits. Expanded content adds no nested vertical scroll and no decorative open or close motion.
 
+### 5.14 Workspace mode and Stimulus Search primitives
+
+**Workspace mode selector:** a persistent labeled native radio, segmented control, or equivalent single-choice control with exactly Analyzer and Stimulus Search. It precedes mode-specific controls, remains keyboard operable, and switches presentation without computation. Analyzer retains the four tracked tabs in their fixed order and all semantics in Sections 4.2 and 5.4 unchanged; Stimulus Search does not add, remove, rename, or repurpose an Analyzer tab.
+
+**Search configuration:** compact labeled native number inputs, select controls, optional constraint and preference sections, and one filled primary action, `Search stimuli`. Values are retained on validation failure. Limits and inclusive bounds are visible before submission. Hard constraints and soft preferences are visually and verbally distinct, and no control offers automatic relaxation.
+
+**Search result:** visible `Complete` or `Partial` status; requested, evaluated, accepted, and selected counts; partial reason when present; and a bounded violation-frequency table with constraint, failure count, and frequency. Partial is a valid bounded result, not an error or claim that constraints were relaxed. Candidate rows, selected detail, matching, assignment/QC, and the four downloads read the immutable search snapshot or explicit derived set.
+
+**Exports:** native download actions are labeled Candidate CSV, Scientific CSV, Reproducibility configuration JSON, and Experiment-ready CSV. Candidate and Scientific exports use the stored `SearchResult`; the configuration export records matching tolerances, assignment seed, and validation report only when supplied; Experiment-ready CSV uses the explicit final candidate set. Export actions remain disabled with a reason until their required source exists.
+
 ## 6. Lifecycle, Validation, and Motion
 
-### 6.1 Explicit calculation lifecycle
+### 6.1 Explicit Analyzer calculation lifecycle
 
 1. Initial state: Markov Chain with Variable-order Markov is selected. Intake and method controls show a documented starter state or clear empty instruction. Results explain what must be submitted.
 2. Editing state: changing analysis method inclusion, Markov workflow, smoothing alpha, minimum support, training input text, upload, parsed records, computational result-scope inputs, or evaluation target invalidates only dependent outputs and exports.
@@ -412,12 +441,12 @@ Computational inputs and presentation selectors use separate session-state keys 
 
 ### 6.4 Extensible projection architecture
 
-The presentation projection accepts explicit method, sequence-scope, selected-ID, and subview state. Future filtering may extend that typed selector state and the same deterministic projection boundary without changing stored calculations, scientific schemas, or export precision. This release adds no stimulus selector, filter control, hidden filter behavior, or filtered scientific claim. Reserved architecture is not visible UI and does not alter current results.
+The application has exactly two sibling workspace projections. Analyzer accepts explicit method, sequence-scope, selected-ID, and subview state over its immutable calculation snapshot. Stimulus Search accepts explicit stage, candidate selection, matching, and assignment/QC presentation state over its immutable `SearchResult` snapshot and explicit immutable derived sets. Search-configuration changes mark only the Stimulus Search result and dependent exports stale; presentation changes and top-level mode switching do not calculate, search, assign, mutate snapshots, or affect Analyzer state. A successful search atomically replaces the current search snapshot. A failed search preserves form values and leaves any prior result clearly stale or unavailable rather than current.
 
 ### 6.5 Action hierarchy
 
-1. The sole filled primary action is `Calculate selected methods`.
-2. Secondary actions include file upload, model preset import where HMM is selected, and downloads.
+1. Exactly one filled primary action appears in the active mode: `Calculate selected methods` in Analyzer or `Search stimuli` in Stimulus Search.
+2. Secondary actions include file upload, model preset import where HMM is selected, complement generation, matching, target assignment, and downloads.
 3. Tertiary actions include help and in document navigation.
 4. No floating action, destructive styling for non destructive work, hidden context menu, or icon only scientific action is allowed.
 
@@ -435,11 +464,12 @@ The release target is WCAG 2.2 AA at 375, 768, and 1280 px, at 200 percent zoom,
 2. **Low-vision researcher at 200 percent zoom.** Must read labels, units, values, status, focus, chart alternatives, and complete identifiers without overlapping content, clipped actions, or two-dimensional page scrolling.
 3. **Narrow-screen field researcher at 375 px.** Must use the native sidebar drawer and the active workspace without losing context, encountering covered focus, or traversing vertically stacked results for inactive methods.
 4. **Large-batch researcher with 5,000 sequences.** Must reach aggregate status, bounded comparison and evidence, specific selected records, and complete exports without 5,000 expanded cards, an unbounded control list, or nested vertical scrolling.
+5. **Stimulus researcher.** Must configure and run a bounded seeded search, understand complete or partial status and violation frequencies, inspect a candidate, optionally create complements and match, separately assign targets and review descriptive QC, and download all four artifacts without confusing targets with search inputs.
 
 ### 7.2 Interaction, reflow, and alternatives
 
 1. Persistent labels, units, required state, descriptions, and validation messages are programmatically associated with controls where Streamlit supports it.
-2. Focus order follows document order: sidebar identity, analysis method selection, active controls, intake, target, calculation action, status, complete downloads, workspace title, method tabs, sequence scope and selector, subview, active result interactions, selected downloads, and help.
+2. Focus order follows document order: sidebar identity, workspace mode, active mode controls and primary action, status and complete downloads, workspace title, active mode navigation, bounded result interactions, selected detail and downloads, reproducibility, and help. Within Analyzer, analysis method selection, intake, target, calculation action, method tabs, sequence scope and selector, and subview retain their existing relative order.
 3. Focus remains visible against every token surface. No result panel or CSS behavior may obscure the focused item.
 4. Every control, native sidebar drawer, method tab, scope choice, multiselect, and subview is keyboard operable without a custom keyboard trap. Do not override native numeric input navigation or tab key behavior.
 5. Tables have semantic headers and captions or equivalent descriptions. The default deterministic order is stated before sortable or searchable presentation.
@@ -466,9 +496,9 @@ The release target is WCAG 2.2 AA at 375, 768, and 1280 px, at 200 percent zoom,
 
 ### 8.2 Primitive showcase and QA conditions
 
-Before release, a development-only primitive showcase must demonstrate default, selected, focus, disabled, error, warning, loading, empty, stale, unavailable, uncalculated, truncated, and valid states for every applicable primitive. It must include native sidebar sections, tracked method tabs, One/Multiple/All sequence selection, the subview control, single deep-dive cards, aggregate dashboard, bounded comparison, bounded evidence, complete exports, selected exports, and HMM disabled or uncalculated empty states.
+Before release, a development-only primitive showcase must demonstrate default, selected, focus, disabled, error, warning, loading, empty, stale, unavailable, uncalculated, truncated, and valid states for every applicable primitive. It must include the two-option workspace mode, native sidebar sections, Analyzer tracked method tabs, One/Multiple/All sequence selection, the subview control, single deep-dive cards, aggregate dashboard, bounded comparison, bounded evidence, Stimulus Search configuration and status, candidate table and detail, matching, assignment/QC, complete exports, selected exports, and HMM disabled or uncalculated empty states.
 
-QA must capture and inspect screenshots at 375, 768, and 1280 px. The 1280 px capture must show the persistent native sidebar at approximately `--sidebar-width`, compact horizontal method tabs and selectors, the workspace title at `--text-heading-1`, dense low-radius organization, and one dominant Overview chart. The 768 and 375 px captures must show the native sidebar drawer, coherent single workspace flow, no clipped method or sequence selection, usable upload and export controls, long-ID handling, and only permitted horizontal table overflow. All three widths must also pass at 200 percent zoom.
+QA must capture and inspect both workspace modes at 375, 768, and 1280 px. The 1280 px Analyzer capture must show the persistent native sidebar at approximately `--sidebar-width`, compact horizontal method tabs and selectors, the workspace title at `--text-heading-1`, dense low-radius organization, and one dominant Overview chart. The 1280 px Stimulus Search capture must show compact staged controls, status, bounded candidates, selected detail, and available secondary actions without a second main-column configuration layout. The 768 and 375 px captures must show the native sidebar drawer, coherent single workspace flow, no clipped mode/method/sequence/candidate selection, usable upload and export controls, long-ID handling, and only permitted horizontal table overflow. All captures must also pass at 200 percent zoom.
 
 QA must also prove:
 
@@ -490,6 +520,11 @@ QA must also prove:
 16. The active Overview contains at most one primary chart. Compare shows at most 25 visible rows and Evidence at most 50, each with `Showing N of M rows` when truncated and a route to a complete export.
 17. Sidebar complete exports ignore presentation selectors and remain complete. Workspace selected exports include every eligible row for the selected method and records without changing existing schema, ordering, target semantics, or raw precision.
 18. Keyboard-only use, native narrow sidebar drawer behavior, focus restoration, 200 percent zoom, 320 CSS px equivalent reflow, long IDs, unbroken strings, and accessible horizontal overflow pass without clipped content or a keyboard trap.
+19. The top-level mode selector contains exactly Analyzer and Stimulus Search. Switching modes preserves each mode's immutable snapshot and form/presentation state, performs no computation, and leaves Analyzer's four fixed tabs and semantics unchanged.
+20. A seeded search samples without replacement, evaluates the full bounded sample, never crosses sequence boundaries, reuses per-sequence VMM analysis, never loosens hard constraints, and reports complete/partial status plus violation counts and frequencies. Limits reject sequence length above 32, candidate limit above 5,000, seed outside 0 through `2**63 - 1`, or desired count above candidate limit.
+21. Canonical `0/1` values display and export as A/B while `symbol_mapping` remains metadata only. Probability ties retain `predicted_target_index=None` and remain distinct from unavailable predictions.
+22. Complement candidates are independently analyzed; matching shows qualified pairs and retained unmatched candidates. Separate seeded target assignment cannot affect search or fitting, and QC is explicitly descriptive rather than held-out, causal, or inferential validation.
+23. Candidate and detail tables are bounded with complete raw-precision routes. Candidate CSV, Scientific CSV, Reproducibility configuration JSON, and Experiment-ready CSV contain their backend-defined scopes without display rounding.
 
 ### 8.3 Release checklist
 
@@ -518,6 +553,10 @@ QA must also prove:
 23. The active Overview contains at most one dominant chart, and no inactive method body or record-by-record expanded loop is rendered as a vertical results document.
 24. Complete sidebar exports and selected workspace exports preserve existing schemas, deterministic ordering, target semantics, and raw precision.
 25. Keyboard-only, low-vision/200-percent-zoom, 375 px narrow-screen, and 5,000-sequence user contexts pass their stated tasks.
+26. The workspace selector contains exactly Analyzer and Stimulus Search; mode switching is presentation-only; and Analyzer retains exactly Method Comparison, Markov Chain, Hidden Markov Model, and Observed Shannon Entropy in its fixed tab order.
+27. Stimulus Search exposes the staged search, bounded candidate inspection, optional complement/matching, separate target assignment and descriptive QC, and four export actions without targets influencing search or fitting.
+28. Search status distinguishes complete from partial, states the bound reason, and shows hard-constraint violation frequencies without automatic relaxation or an exhaustive-search claim for a sampled universe.
+29. Stimulus Search screenshots and keyboard checks pass at 375, 768, and 1280 px, including candidate selection, detail inspection, matching, assignment/QC, and all available downloads.
 
 ### 8.4 Accepted debt
 

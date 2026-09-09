@@ -5,6 +5,7 @@ import streamlit as st
 
 from binary_entropy.domain import float_values
 from binary_entropy.methods.shannon import ShannonBatchAnalysis, ShannonRecordAnalysis
+from binary_entropy.ui.help_text import UI_HELP
 from binary_entropy.ui.text import joined_text
 from binary_entropy.ui.tokens import UI_NUMBER_FORMAT, format_ui_decimal
 
@@ -78,7 +79,9 @@ def render_shannon_result(
     """Render pooled and per-sequence descriptive entropy without predictions."""
     labels = analysis.observable_labels
     pooled = analysis.pooled
-    _ = st.subheader("Observed-symbol Shannon entropy")
+    _ = st.subheader(
+        "Observed-symbol Shannon entropy", help=UI_HELP["observed_entropy"]
+    )
     _ = st.markdown(
         "This describes symbols already present and is not a next-target prediction."
     )
@@ -92,12 +95,14 @@ def render_shannon_result(
     _ = columns[1].metric(
         f"Observed P({labels[0]})",
         "Unavailable" if probabilities is None else format_ui_decimal(probabilities[0]),
+        help="Observed frequency of A in the pooled data. Range 0-1.",
     )
     _ = columns[2].metric(
         "Observed Shannon entropy (bits)",
         "Unavailable"
         if pooled.entropy_bits is None
         else format_ui_decimal(pooled.entropy_bits),
+        help=UI_HELP["observed_entropy"],
     )
     if has_targets:
         _ = st.info(

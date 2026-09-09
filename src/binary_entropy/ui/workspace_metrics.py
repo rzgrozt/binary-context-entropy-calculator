@@ -8,6 +8,7 @@ from binary_entropy.domain import float_values
 from binary_entropy.markov_types import MarkovBatchAnalysis
 from binary_entropy.methods.hmm import HMMBatchAnalysis
 from binary_entropy.methods.shannon import ShannonBatchAnalysis
+from binary_entropy.ui.help_text import UI_HELP
 from binary_entropy.ui.tokens import format_ui_decimal
 from binary_entropy.ui.vmm_results import vmm_context_label
 from binary_entropy.ui.workspace_agreement import prediction_label, prediction_values
@@ -21,6 +22,7 @@ class MetricValue:
 
     label: str
     value: str
+    help_text: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,18 +49,29 @@ def single_metric_values(
                 MetricValue(
                     "Effective context depth",
                     _display_integer(record.effective_context_depth),
+                    UI_HELP["effective_depth"],
                 ),
-                MetricValue(f"P(next {labels[0]})", _display(record.probability_a)),
-                MetricValue(f"P(next {labels[1]})", _display(record.probability_b)),
+                MetricValue(
+                    f"P(next {labels[0]})",
+                    _display(record.probability_a),
+                    UI_HELP["probability_a"],
+                ),
+                MetricValue(
+                    f"P(next {labels[1]})",
+                    _display(record.probability_b),
+                    UI_HELP["probability_b"],
+                ),
                 MetricValue(
                     "Predicted target",
                     _prediction(record.probability_a, record.probability_b, labels),
+                    UI_HELP["prediction"],
                 ),
                 MetricValue(
                     "Predictive entropy (bits)",
                     _display(record.predictive_entropy_bits),
+                    UI_HELP["predictive_entropy"],
                 ),
-                MetricValue("Context used", context),
+                MetricValue("Context used", context, UI_HELP["context_depth"]),
             )
         case MarkovBatchAnalysis(records=(record,)):
             final = record.rows[-1]
@@ -103,13 +116,18 @@ def single_metric_values(
                 else float_values(summary.symbol_probabilities)
             )
             return (
-                MetricValue("Observed entropy (bits)", _display(summary.entropy_bits)),
+                MetricValue(
+                    "Observed entropy (bits)",
+                    _display(summary.entropy_bits),
+                    UI_HELP["observed_entropy"],
+                ),
                 MetricValue(f"Observed P({labels[0]})", _display(probabilities[0])),
                 MetricValue(f"Observed P({labels[1]})", _display(probabilities[1])),
                 MetricValue("Maximum binary entropy (bits)", "1.000"),
                 MetricValue(
                     "Normalized entropy (H / 1 bit)",
                     _display(summary.entropy_bits),
+                    "Observed entropy divided by its 1-bit maximum. Range 0-1.",
                 ),
             )
         case (
@@ -150,8 +168,12 @@ def aggregate_metric_values(
     )
     values = (
         MetricValue("Selected records", str(_record_count(result))),
-        MetricValue("Mean entropy (bits)", _mean_value(entropies)),
-        MetricValue("Median entropy (bits)", _median_value(entropies)),
+        MetricValue(
+            "Mean entropy (bits)", _mean_value(entropies), _entropy_help(result)
+        ),
+        MetricValue(
+            "Median entropy (bits)", _median_value(entropies), _entropy_help(result)
+        ),
     )
     match result:
         case ShannonBatchAnalysis():
@@ -159,8 +181,16 @@ def aggregate_metric_values(
         case VMMAnalysis():
             return (
                 *values,
-                MetricValue("Mean effective depth", _mean_value(depths)),
-                MetricValue("Median effective depth", _median_value(depths)),
+                MetricValue(
+                    "Mean effective depth",
+                    _mean_value(depths),
+                    UI_HELP["effective_depth"],
+                ),
+                MetricValue(
+                    "Median effective depth",
+                    _median_value(depths),
+                    UI_HELP["effective_depth"],
+                ),
                 *prediction_metrics,
             )
         case MarkovBatchAnalysis() | HMMBatchAnalysis():
@@ -210,6 +240,16 @@ def _available_entropy_points(
         for identifier, value in pairs
         if value is not None
     )
+
+
+def _entropy_help(result: WorkbenchResult) -> str:
+    """Distinguish observed-composition entropy from predictive entropy."""
+    match result:
+        case ShannonBatchAnalysis():
+            return UI_HELP["observed_entropy"]
+        case VMMAnalysis() | MarkovBatchAnalysis() | HMMBatchAnalysis():
+            return UI_HELP["predictive_entropy"]
+    assert_never(result)
 
 
 def _record_count(result: WorkbenchResult) -> int:

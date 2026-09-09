@@ -1,9 +1,9 @@
 """Shared native components for bounded workspace projections."""
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Final, assert_never
 
-import pandas as pd
+import pandas as pd  # noqa: RUF100  # noqa: PANDAS_OK
 import streamlit as st
 
 from binary_entropy.ui.text import joined_text
@@ -13,6 +13,8 @@ from binary_entropy.ui.workspace_selection import SequenceScope
 
 COMPARISON_ROW_LIMIT: Final = 25
 EVIDENCE_ROW_LIMIT: Final = 50
+
+type DataframeCell = str | int | float | bool | None
 
 
 def render_scope_heading(
@@ -42,13 +44,15 @@ def render_metrics(values: tuple[MetricValue, ...]) -> None:
         row = values[start : start + 3]
         columns = st.columns(len(row))
         for column, metric in zip(columns, row, strict=True):
-            _ = column.metric(metric.label, metric.value)
+            _ = column.metric(metric.label, metric.value, help=metric.help_text)
 
 
 def render_bounded_dataframe(
     frame: pd.DataFrame,
     limit: int,
     order: str,
+    *,
+    column_help: Mapping[str, str] | None = None,
 ) -> None:
     """Render deterministic rows with an explicit truncation route."""
     visible = frame.head(limit)
@@ -62,10 +66,15 @@ def render_bounded_dataframe(
                 )
             )
         )
-    float_columns = visible.select_dtypes(include=float).columns
+    help_map = column_help or {}
+    float_columns = set(visible.select_dtypes(include=float).columns)
     column_config = {
-        str(column): st.column_config.NumberColumn(format=UI_NUMBER_FORMAT)
-        for column in float_columns
+        str(column): st.column_config.NumberColumn(
+            format=UI_NUMBER_FORMAT if column in float_columns else None,
+            help=help_map.get(str(column)),
+        )
+        for column in visible.columns
+        if column in float_columns or str(column) in help_map
     }
     _ = st.dataframe(
         visible,
@@ -73,4 +82,21 @@ def render_bounded_dataframe(
         width="stretch",
         height="content",
         column_config=column_config,
+    )
+
+
+def render_bounded_records(
+    records: Sequence[Mapping[str, DataframeCell]],
+    limit: int,
+    order: str,
+    *,
+    columns: tuple[str, ...] | None = None,
+    column_help: Mapping[str, str] | None = None,
+) -> None:
+    """Render records through the existing bounded dataframe presentation."""
+    render_bounded_dataframe(
+        pd.DataFrame.from_records(records, columns=columns),
+        limit,
+        order,
+        column_help=column_help,
     )

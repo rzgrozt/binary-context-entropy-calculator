@@ -9,6 +9,7 @@ import streamlit as st
 
 from binary_entropy.batch_parsing import CsvBatchColumns
 from binary_entropy.errors import BatchParseError
+from binary_entropy.ui.help_text import UI_HELP
 from binary_entropy.ui.state import ActualTargetChoice
 from binary_entropy.ui.text import joined_text
 from binary_entropy.ui.workbench_state import INPUT_MODE_OPTIONS, InputMode, IntakeForm
@@ -27,9 +28,7 @@ CSV_SEQUENCE_KEY: Final = "shared_csv_sequence_column"
 CSV_TARGET_KEY: Final = "shared_csv_target_column"
 NO_TARGET_COLUMN: Final = "None"
 TARGET_LABEL: Final = "Optional observed next target — for surprisal calculation only"
-TARGET_HELP: Final = (
-    "This selection evaluates the existing prediction and does not change it."
-)
+TARGET_HELP: Final = UI_HELP["actual_target"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,8 +69,12 @@ def render_observable_labels() -> tuple[str, str]:
     initialize_intake_widgets()
     _ = st.subheader("Observable labels")
     columns = st.columns(2)
-    label_a = columns[0].text_input("Observable A label", key=OBSERVABLE_A_KEY)
-    label_b = columns[1].text_input("Observable B label", key=OBSERVABLE_B_KEY)
+    label_a = columns[0].text_input(
+        "Observable A label", key=OBSERVABLE_A_KEY, help=UI_HELP["observable_labels"]
+    )
+    label_b = columns[1].text_input(
+        "Observable B label", key=OBSERVABLE_B_KEY, help=UI_HELP["observable_labels"]
+    )
     _ = st.caption("Labels are trimmed, nonempty, and distinct. Spaces are allowed.")
     return label_a or "", label_b or ""
 
@@ -84,6 +87,7 @@ def render_intake(observable_labels: tuple[str, str]) -> IntakeForm:
         "Input mode",
         options=tuple(mode.value for mode in INPUT_MODE_OPTIONS),
         key=INPUT_MODE_KEY,
+        help=UI_HELP["input_mode"],
     )
     mode = InputMode(selected_mode or InputMode.SINGLE.value)
     text = ""

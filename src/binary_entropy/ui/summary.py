@@ -17,6 +17,7 @@ from binary_entropy.serialization import (
     prefix_csv,
 )
 from binary_entropy.ui.chart import entropy_figure
+from binary_entropy.ui.help_text import UI_HELP
 from binary_entropy.ui.results import (
     final_metrics,
     format_information,
@@ -59,7 +60,7 @@ def render_hmm_result(analysis: HMMBatchAnalysis, form: WorkbenchForm) -> None:
         model=form.hmm_model.to_model(),
         single_record=len(analysis.records) == 1,
     )
-    _ = st.subheader("Hidden Markov Model")
+    _ = st.subheader("Hidden Markov Model", help=UI_HELP["hmm_configured"])
     _ = st.caption(
         joined_text(
             (
@@ -146,36 +147,40 @@ def _render_metrics(
         MetricDisplay("Context depth", str(values.depth), "Observations consumed."),
         MetricDisplay("Observed context", values.context, "Complete entered prefix."),
         MetricDisplay(
-            f"P(next {observable_0})", values.probability_0, "HMM prediction."
+            f"P(next {observable_0})", values.probability_0, UI_HELP["probability_a"]
         ),
         MetricDisplay(
-            f"P(next {observable_1})", values.probability_1, "HMM prediction."
+            f"P(next {observable_1})", values.probability_1, UI_HELP["probability_b"]
         ),
         MetricDisplay(
-            "Predicted target", values.predicted_target, "Ties choose observable A."
+            "Predicted target", values.predicted_target, UI_HELP["prediction"]
         ),
         MetricDisplay(
             "HMM predictive entropy (bits)",
             values.entropy_bits,
-            "Next-symbol uncertainty.",
+            UI_HELP["predictive_entropy"],
         ),
         MetricDisplay(
             f"Candidate surprisal {observable_0} (bits)",
             values.surprisal_0,
-            "Self-information.",
+            UI_HELP["surprisal"],
         ),
         MetricDisplay(
             f"Candidate surprisal {observable_1} (bits)",
             values.surprisal_1,
-            "Self-information.",
-        ),
-        MetricDisplay(f"Posterior {state_0}", values.posterior_0, values.posterior),
-        MetricDisplay(f"Posterior {state_1}", values.posterior_1, values.posterior),
-        MetricDisplay(
-            f"Next-hidden {state_0}", values.next_hidden_0, "Next hidden distribution."
+            UI_HELP["surprisal"],
         ),
         MetricDisplay(
-            f"Next-hidden {state_1}", values.next_hidden_1, "Next hidden distribution."
+            f"Posterior {state_0}", values.posterior_0, UI_HELP["hmm_posterior"]
+        ),
+        MetricDisplay(
+            f"Posterior {state_1}", values.posterior_1, UI_HELP["hmm_posterior"]
+        ),
+        MetricDisplay(
+            f"Next-hidden {state_0}", values.next_hidden_0, UI_HELP["hmm_next_hidden"]
+        ),
+        MetricDisplay(
+            f"Next-hidden {state_1}", values.next_hidden_1, UI_HELP["hmm_next_hidden"]
         ),
     )
     columns = st.columns(3)
@@ -211,6 +216,7 @@ def _render_target(assessment: TargetAssessment, model: BinaryHMM) -> None:
     _ = columns[2].metric(
         "Realized surprisal (bits)",
         format_information(assessment.surprisal_bits),
+        help=UI_HELP["target_surprisal"],
     )
     _ = st.markdown(wording)
 

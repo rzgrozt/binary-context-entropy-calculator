@@ -1,9 +1,10 @@
 # Binary Sequence Probability, Prediction & Entropy Workbench
 
-A local Streamlit workbench for fitting, comparing, and inspecting binary
-sequence methods. It keeps independently submitted records separate and makes
-the distinction between a next-symbol prediction and a description of symbols
-already observed explicit.
+A local Streamlit workbench with an Analyzer for fitting, comparing, and
+inspecting binary-sequence methods, plus a backend for reproducible bounded
+Stimulus Search. It keeps independently submitted records separate and makes
+the distinction between prediction, description, search, and later target
+assignment explicit.
 
 ## Install and run
 
@@ -13,6 +14,13 @@ Python 3.13 or newer is required.
 uv sync
 uv run streamlit run streamlit_app.py
 ```
+
+The Streamlit surface opens the **Analyzer** and provides a top-level selector
+with exactly **Analyzer** and **Stimulus Search**. Switching modes is
+presentation-only and preserves separate immutable session snapshots. The
+Stimulus Search workspace exposes bounded search, candidate inspection,
+complement matching, seeded target assignment, descriptive quality control,
+and raw-precision exports through the public Python API described below.
 
 ## Choose methods and provide data
 
@@ -52,6 +60,73 @@ No method concatenates records or counts a transition from the end of one
 record to the start of another. Empty sequences are allowed where the chosen
 input supplies a valid record ID, although some quantities are unavailable
 without observations or transitions.
+
+## Stimulus Search workflow
+
+Stimulus Search uses canonical `0/1` sequences internally and displays and
+exports them as `A/B`. The configurable `symbol_mapping` is metadata only; it
+does not change generation, analysis, filtering, ranking, matching, or target
+assignment.
+
+1. Configure a sequence length, desired count, candidate limit, seed,
+   per-sequence VMM smoothing (KT, MLE, or custom positive additive alpha),
+   minimum context support, optional hard constraints, and optional weighted
+   absolute-distance preferences. Hard constraints cover predicted symbol,
+   predicted probability, predictive entropy, effective depth, context support,
+   A count and proportion, switches and switch rate, and longest A, B, or
+   overall run. Preferences cover every supported ranking metric and are stored
+   in deterministic metric order.
+2. Run a seeded sample without replacement. The sample is bounded by the
+   smaller of the candidate limit and the binary universe, and the full sample
+   is analyzed before accepted candidates are ranked. Hard constraints are
+   never relaxed.
+3. Inspect `complete` or `partial` status, evaluated/accepted/selected counts,
+   the partial reason, and failure count and frequency for each violated hard
+   constraint. A sampled search is not described as exhaustive unless the
+   bounded sample covers the universe.
+4. Optionally generate bitwise complements as new independent records and
+   greedily match opposite predictions within every supplied tolerance.
+   Matching requires equal sequence lengths and compares composition/run
+   structure after exchanging A/B identities. Unmatched candidates are retained.
+5. Separately assign targets with an assignment seed. Descriptive quality
+   control is available both before and after assignment. Target policies include
+   balanced, expected, unexpected, always A, and always B. Expected/unexpected
+   policies leave ties unassigned; explicit A/B targets label ties explicitly. Assignment balances expected/unexpected and A/B targets as
+   closely as the available predictions permit. Targets never influence
+   generation, VMM fitting, search, constraints, ranking, or matching.
+
+The overview includes acceptance rate and achieved min/mean/max ranges. Candidate
+inspection can open the existing analyzer diagnostics, plot, and sequence exports.
+Presentation labels and an optional condition can be applied separately to the final
+set without changing its A/B structure. Final QC reports failures against the original
+hard constraints; complements are explicit controls, not automatically accepted
+search results. Configuration JSON includes final IDs, sequences, mapping, conditions,
+targets and original-filter failures. Search analysis runs in batches of 64 to bound
+transient model memory while retaining deterministic full-sample ranking.
+
+Editing any computational search control invalidates the current search and all
+derived stages before another submission. Candidate-detail selection, export
+interaction, and top-level mode switching are presentation-only and do not
+invalidate either workspace's immutable snapshot.
+
+Each candidate is an independent sequence boundary and reuses the public VMM
+Analyzer in per-sequence scope. When both probabilities exist and tie,
+`predicted_target_index` is `None`; this differs from an unavailable
+prediction. Current enforced limits are sequence length `<= 32`, candidate
+limit `<= 5000`, seed from `0` through `2**63 - 1`, and desired count no greater
+than candidate limit.
+
+Four raw-precision exports are implemented:
+
+- **Candidate CSV**: every accepted candidate in rank order, including selected
+  status, metrics, VMM result, and any stored pair or target fields.
+- **Scientific CSV**: every retained VMM depth-evidence row for accepted
+  candidates.
+- **Reproducibility configuration JSON**: the immutable search configuration,
+  counts, status, violations, provenance, and optional matching tolerances,
+  assignment seed, and descriptive validation report supplied by the caller.
+- **Experiment-ready CSV**: the explicit candidate set passed after selection,
+  matching, or target assignment.
 
 ## Methods and equations
 
@@ -302,6 +377,41 @@ HMM, use `BinaryHMM`, `HMMAnalysisRequest`, and `analyze_dataset`.
 `AdditiveSmoothing`, and the VMM and first-order fit functions are also public
 exports.
 
+The stimulus API exposes immutable configuration and result records plus pure
+operations. A minimal bounded search is:
+
+```python
+from binary_entropy import (
+    StimulusSearchConfig,
+    VMMConfig,
+    search_stimuli,
+    stimulus_candidate_csv,
+    stimulus_generator_config_json,
+    stimulus_scientific_csv,
+)
+
+search = search_stimuli(
+    StimulusSearchConfig(
+        sequence_length=12,
+        desired_stimuli=24,
+        seed=2026,
+        candidate_limit=1000,
+        vmm_config=VMMConfig(minimum_support=2),
+    )
+)
+candidate_csv = stimulus_candidate_csv(search)
+scientific_csv = stimulus_scientific_csv(search)
+configuration_json = stimulus_generator_config_json(search)
+```
+
+Use `StimulusConstraints`, `InclusiveRange`, `PredictedSymbol`,
+`SoftPreference`, and `PreferenceMetric` to configure search. Optional workflow
+functions are `create_complement_candidates`, `match_stimuli`,
+`assign_targets`, and `validate_stimuli`; matching uses `MatchTolerances`.
+Serialize an explicit final candidate tuple with `stimulus_experiment_csv`.
+`SearchResult` records the immutable reproducible snapshot, including status,
+partial reason, accepted and selected candidates, and constraint violations.
+
 ## Architecture
 
 - `streamlit_app.py` provides persistent sidebar configuration, selected-method controls, explicit
@@ -314,6 +424,17 @@ exports.
   suffix selection, and per-record VMM results.
 - `vmm_serialization.py` produces the experimental Context model JSON, Context
   evidence CSV, and Evaluation CSV artifacts.
+- `stimulus_search_types.py` and `stimulus_search_results.py` define validated
+  immutable search configuration, candidates, search snapshots, matching, and
+  descriptive QC records.
+- `stimulus_generation.py`, `stimulus_metrics.py`, `stimulus_analysis.py`, and
+  `stimulus_search.py` implement seeded bounded sampling, descriptive metrics,
+  independent per-sequence VMM reuse, hard filtering, and preference ranking.
+- `stimulus_matching.py` and `stimulus_targets.py` implement optional complement
+  analysis and tolerance matching, separate balanced target assignment, and
+  descriptive validation.
+- `stimulus_search_csv.py` and `stimulus_search_json.py` provide Candidate,
+  Scientific, Experiment-ready, and reproducibility configuration exports.
 - `methods/markov.py`, `methods/hmm.py`, and `methods/shannon.py` implement
   the three analyses.
 - `markov_types.py`, `markov_information.py`, and the Markov serialization
@@ -353,14 +474,20 @@ Run the focused HMM reference checks or the full suite and static gates:
 
 ```bash
 uv run pytest tests/unit/test_filtering_analysis.py tests/ui/test_results.py
+uv run pytest tests/integration/test_streamlit_stimulus_mode.py tests/integration/test_streamlit_stimulus_search.py tests/integration/test_streamlit_stimulus_derived.py
 uv run pytest
 uv run ruff check .
 uv run basedpyright
 ```
 
 The suite covers parsers and record boundaries, Markov fitting and scope,
-Shannon prefixes, serialization, and Streamlit `AppTest` workflows for method
-selection, uploads, presets, targets, results, and stale state.
+Shannon prefixes, serialization, stimulus generation and metrics, search
+configuration and status, public stimulus exports, matching, target assignment,
+and descriptive validation. Streamlit `AppTest` workflows cover Analyzer method
+selection, uploads, presets, targets, results, workspace selectors, exports,
+and stale state, plus Stimulus Search mode isolation, bounded results, hard
+constraints, candidate detail, complements, matching, assignment, descriptive
+quality control, and downloads.
 
 ## Limitations
 
@@ -376,6 +503,8 @@ selection, uploads, presets, targets, results, and stale state.
   transition matrix identifies a unique stationary distribution.
 - Results are conditional calculations, not causal claims or validation of a
   model's suitability for a dataset.
+- Stimulus Search is bounded and may return a partial result. It does not relax
+  hard constraints or provide inferential, causal, or held-out validation.
 - Numerical work uses float64 arithmetic.
 
 ## Citation

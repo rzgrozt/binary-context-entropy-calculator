@@ -16,3 +16,4 @@ dist/
 /architecture_snapshot.txt
 /project_snapshot.txt
 /workbench-final-*.png
+.aider*
