@@ -12,11 +12,26 @@ Statistical and probabilistic analysis of binary sequences.
 
 ### MarkovAnalysisRequest
 
-::: bspe.methods.markov.MarkovAnalysisRequest
+Configuration for Markov analysis:
+
+```python
+from bspe import MarkovAnalysisRequest, MarkovPredictionMode, MarkovResultScope
+
+request = MarkovAnalysisRequest(
+    smoothing=KTSmoothing(),  # Default
+    prediction_mode=MarkovPredictionMode.FIXED_MODEL,
+    scope=MarkovResultScope.UNION,  # Default: both per-seq and pooled
+)
+```
+
+**Fields:**
+- `smoothing`: KTSmoothing, MLESmoothing, or AdditiveSmoothing
+- `prediction_mode`: FIXED_MODEL or CUMULATIVE_PREFIX
+- `scope`: PER_SEQUENCE, POOLED, or UNION
 
 ### MarkovResult
 
-::: bspe.methods.markov.MarkovResult
+Result container with `records: tuple[MarkovRecordAnalysis, ...]`
 
 ### MarkovRecordAnalysis
 
@@ -30,43 +45,88 @@ transition_matrix = record.transition_probabilities  # 2x2 matrix
 
 ### MarkovPredictionMode
 
-::: bspe.markov_types.MarkovPredictionMode
+Enum for target prediction strategy:
+- `FIXED_MODEL`: Use model learned from full sequence (default)
+- `CUMULATIVE_PREFIX`: Update model as prediction progresses
 
 ### MarkovResultScope
 
-::: bspe.markov_types.MarkovResultScope
+Enum for result aggregation:
+- `PER_SEQUENCE`: One result per input sequence
+- `POOLED`: Single aggregate result
+- `UNION`: Both per-sequence and pooled (default)
 
 ## VMM (Variable-Order Markov) Analysis
 
 ### VMMAnalysisRequest
 
-::: bspe.methods.vmm.VMMAnalysisRequest
+Configuration for VMM analysis:
+
+```python
+from bspe import VMMAnalysisRequest, VMMConfig, VMMResultScope, KTSmoothing
+
+request = VMMAnalysisRequest(
+    smoothing=KTSmoothing(),  # Default
+    config=VMMConfig(
+        minimum_support=2,
+        maximum_depth=4,
+    ),
+    scope=VMMResultScope.POOLED,  # Default
+)
+```
+
+**Fields:**
+- `smoothing`: Smoothing strategy (KTSmoothing, MLESmoothing, AdditiveSmoothing)
+- `config`: VMM configuration (minimum_support, maximum_depth)
+- `scope`: PER_SEQUENCE or POOLED
 
 ### VMMConfig
 
-::: bspe.vmm_types.VMMConfig
+Configuration for VMM algorithm:
+
+- `minimum_support` (int): Minimum observations required for a context (default: 2)
+- `maximum_depth` (int): Maximum context depth to explore (default: 4)
+- `depth_evidence_limit` (float): Threshold for depth evidence (default: 0.1)
 
 ### VMMSmoothing
 
-::: bspe.vmm_types.VMMSmoothing
+Base class for smoothing strategies. Use one of:
 
-(Abstract base; use `KTSmoothing`, `MLESmoothing`, or `AdditiveSmoothing`)
+- `KTSmoothing()`: Krichevsky-Trofimov (Bayesian, α=0.5)
+- `MLESmoothing()`: Maximum Likelihood (no smoothing, α=0)
+- `AdditiveSmoothing(alpha=1.0)`: Laplace-like (α=1.0)
 
 ### KTSmoothing
 
-::: bspe.vmm_types.KTSmoothing
+Krichevsky-Trofimov smoothing (default). Uses universal prior with pseudo-count 0.5.
+
+```python
+from bspe import KTSmoothing
+smoothing = KTSmoothing()
+```
 
 ### MLESmoothing
 
-::: bspe.vmm_types.MLESmoothing
+Maximum Likelihood Estimation (no smoothing). Zero probability for unseen transitions.
+
+```python
+from bspe import MLESmoothing
+smoothing = MLESmoothing()
+```
 
 ### AdditiveSmoothing
 
-::: bspe.vmm_types.AdditiveSmoothing
+Laplace-like smoothing with configurable pseudo-count.
+
+```python
+from bspe import AdditiveSmoothing
+smoothing = AdditiveSmoothing(alpha=1.0)  # Standard Laplace
+smoothing = AdditiveSmoothing(alpha=0.5)  # Custom
+```
 
 ### VMMResult
 
-::: bspe.methods.vmm.VMMResult
+Result container with `records: tuple[VMMRecordAnalysis, ...]`
 
 ### VMMRecordAnalysis
 
@@ -80,17 +140,32 @@ depth_evidence = record.depth_evidence  # Per-position depth metrics
 
 ### VMMResultScope
 
-::: bspe.vmm_types.VMMResultScope
+Enum for result aggregation:
+- `PER_SEQUENCE`: One result per input sequence
+- `POOLED`: Single aggregate result (default)
 
 ## HMM (Hidden Markov Model) Analysis
 
 ### HMMAnalysisRequest
 
-::: bspe.methods.hmm.HMMAnalysisRequest
+Configuration for HMM analysis:
+
+```python
+from bspe import HMMAnalysisRequest
+
+request = HMMAnalysisRequest(
+    model=model,  # BinaryHMM instance
+    scope=HMMResultScope.PER_SEQUENCE,  # Default
+)
+```
+
+**Fields:**
+- `model`: Configured BinaryHMM
+- `scope`: PER_SEQUENCE or POOLED
 
 ### HMMResult
 
-::: bspe.methods.hmm.HMMResult
+Result container with `records: tuple[HMMRecordAnalysis, ...]`
 
 ### HMMRecordAnalysis
 
@@ -99,22 +174,48 @@ Result for a single sequence or pooled aggregate.
 ```python
 record = result.records[0]
 entropy_bits = record.predictive_entropy_bits
-posterior_prob = record.state_probabilities  # Hidden state posteriors
+posterior_prob = record.state_probabilities  # Hidden state posteriors (per position)
 ```
 
 ### BinaryHMM
 
-::: bspe.domain.BinaryHMM
+Configured two-state, two-observable Hidden Markov Model:
+
+```python
+from bspe import BinaryHMM, BinaryLabels
+
+model = BinaryHMM(
+    labels=BinaryLabels(states=("Fair", "Biased"), observables=("H", "T")),
+    initial=[0.6, 0.4],           # Initial state distribution
+    transition=[[0.9, 0.1],        # State transition matrix (2x2)
+                [0.2, 0.8]],
+    emission=[[0.5, 0.5],          # Emission matrix (2x2)
+              [0.7, 0.3]],
+)
+```
+
+**Raises ProbabilityRangeError, ProbabilitySumError, ProbabilityShapeError if invalid.**
 
 ## Shannon Analysis (Descriptive)
 
 ### ShannonAnalysisRequest
 
-::: bspe.methods.shannon.ShannonAnalysisRequest
+Configuration for Shannon entropy analysis (no temporal model):
+
+```python
+from bspe import ShannonAnalysisRequest
+
+request = ShannonAnalysisRequest(
+    scope=ShannonResultScope.UNION,  # Default: both per-seq and pooled
+)
+```
+
+**Fields:**
+- `scope`: PER_SEQUENCE, POOLED, or UNION
 
 ### ShannonResult
 
-::: bspe.methods.shannon.ShannonResult
+Result container with `records: tuple[ShannonRecordAnalysis, ...]`
 
 ### ShannonRecordAnalysis
 
@@ -123,7 +224,7 @@ Result for a single sequence or pooled aggregate.
 ```python
 record = result.records[0]
 entropy_bits = record.predictive_entropy_bits  # Observed Shannon entropy
-observable_frequencies = record.observable_frequencies
+observable_frequencies = record.observable_frequencies  # (freq_a, freq_b)
 ```
 
 ## Smoothing Classes
@@ -205,8 +306,6 @@ for pos_result in record.per_position_results:
 
 ### binary_entropy
 
-::: bspe.information.binary_entropy
-
 Calculate Shannon entropy of a Bernoulli distribution:
 
 ```python
@@ -234,7 +333,7 @@ See [Exceptions](exceptions.md) for full error reference.
 
 ## See Also
 
-- [User Guide: Methods](../user-guide/methods/overview.md)
+- [User Guide: Methods](../user-guide/overview.md)
 - [Examples: Markov](../examples/markov-comparison.md)
 - [Examples: VMM](../examples/vmm-analysis.md)
 - [Examples: HMM](../examples/hmm-analysis.md)

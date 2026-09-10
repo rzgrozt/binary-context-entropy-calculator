@@ -28,17 +28,24 @@ ValueError
 
 ### BinaryEntropyError
 
-::: bspe.errors.BinaryEntropyError
+Base exception for all bspe errors. Inherits from `ValueError`:
 
-Base for all bspe exceptions.
+```python
+from bspe import BinaryEntropyError
+
+try:
+    # ... bspe operation ...
+except BinaryEntropyError as e:
+    print(f"bspe error: {e}")
+```
+
+All domain-specific errors inherit from this.
 
 ## Configuration Errors
 
 Raised when domain parameters are invalid.
 
 ### ProbabilityRangeError
-
-::: bspe.errors.ProbabilityRangeError
 
 Probability value outside [0, 1].
 
@@ -55,8 +62,6 @@ model = BinaryHMM(
 
 ### ProbabilitySumError
 
-::: bspe.errors.ProbabilitySumError
-
 Probability vector/matrix row doesn't sum to 1.0 (within tolerance).
 
 **Example:**
@@ -71,8 +76,6 @@ model = BinaryHMM(
 ```
 
 ### ProbabilityShapeError
-
-::: bspe.errors.ProbabilityShapeError
 
 Matrix dimensions incorrect (must be 2×2).
 
@@ -93,8 +96,6 @@ Raised when label definitions are invalid.
 
 ### InvalidLabelError
 
-::: bspe.errors.InvalidLabelError
-
 Observable/state label not recognized during parsing.
 
 **Example:**
@@ -105,8 +106,6 @@ sequence = parse_sequence("0 1 2 0", labels)  # "2" not in labels
 ```
 
 ### DuplicateLabelError
-
-::: bspe.errors.DuplicateLabelError
 
 Duplicate labels in BinaryLabels definition.
 
@@ -125,8 +124,6 @@ Raised during sequence/batch parsing.
 
 ### InvalidSequenceTokenError
 
-::: bspe.errors.InvalidSequenceTokenError
-
 Invalid token in sequence text (not recognized in labels).
 
 **Example:**
@@ -138,8 +135,6 @@ sequence = parse_sequence("H T X H", labels, separator=" ")
 
 ### BatchRecordError
 
-::: bspe.errors.BatchRecordError
-
 Collection of record-level issues during batch parsing.
 
 **Example:**
@@ -150,8 +145,6 @@ if issues:
 ```
 
 ### BatchParseError
-
-::: bspe.errors.BatchParseError
 
 File-level parse error (missing columns, file not found, encoding).
 
@@ -168,8 +161,6 @@ except BatchParseError as e:
 Raised during dataset construction.
 
 ### DatasetValidationError
-
-::: bspe.errors.DatasetValidationError
 
 Dataset constraint violated (duplicate IDs, mismatched labels, empty).
 
@@ -189,8 +180,6 @@ Raised during analysis when numerical invariants fail.
 
 ### ZeroLikelihoodError
 
-::: bspe.errors.ZeroLikelihoodError
-
 Observable has zero probability in given context (unseen transition).
 
 **Example:**
@@ -202,8 +191,6 @@ sequence = "AAAAABBB"
 ```
 
 ### NumericalInvariantError
-
-::: bspe.errors.NumericalInvariantError
 
 Entropy or probability estimate failed numerical checks.
 
@@ -222,9 +209,7 @@ Raised during stimulus generation.
 
 ### InvalidStimulusSearchConfigurationError
 
-::: bspe.stimulus_search_types.InvalidStimulusSearchConfigurationError
-
-Constraints are contradictory or infeasible.
+Constraints are contradictory or infeasible (covered in [Stimulus Search API](stimulus-search.md#constraint-validation-errors)).
 
 **Example:**
 ```python
@@ -330,13 +315,13 @@ except NumericalInvariantError as e:
 
 ## Exception String Formatting
 
-All exceptions provide detailed string representations:
+All exceptions provide detailed string representations with context:
 
 ```python
 try:
-    ...
-except BinaryEntropyError as e:
-    print(str(e))  # Human-readable message with context
+    model = BinaryHMM(...)  # Invalid configuration
+except ProbabilityRangeError as e:
+    print(str(e))  # Detailed message about which field and value was invalid
 ```
 
 ## See Also

@@ -407,7 +407,7 @@ stim-0002   | B A B... | B         | B      | Expected
 
 ## See Also
 
-- **[Analyzer Mode](user-guide/overview.md)**: Detailed method descriptions
+- **[Analyzer Mode](overview.md)**: Detailed method descriptions
 - **[Stimulus Search](stimulus-search.md)**: Search configuration and results
 - **[Input Formats](input-formats.md)**: Data format requirements
 - **[Examples](../examples/vmm-analysis.md)**: Runnable examples

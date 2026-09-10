@@ -8,15 +8,26 @@ Export and persistence of sequences, results, and stimulus candidates.
 
 Export analysis results as CSV:
 
-::: bspe.markov_csv.markov_csv_text
-
-### CsvCell
-
-Type alias for CSV cell values:
-
 ```python
-CsvCell = str | float | int | None
+from bspe import markov_csv_text
+
+csv_text = markov_csv_text(
+    columns=["id", "sequence", "entropy_bits", "prob_a"],
+    rows=[
+        ["seq1", "0 1 0 1", 0.0, 0.5],
+        ["seq2", "1 1 0 0", 0.8, 0.3],
+    ],
+)
+
+with open("results.csv", "w") as f:
+    f.write(csv_text)
 ```
+
+**Parameters:**
+- `columns`: List of column headers
+- `rows`: List of rows, where each row is a sequence of CsvCell values
+
+**Returns:** CSV-formatted text string (with proper escaping and quoting)
 
 ## Result Export Workflows
 
@@ -139,17 +150,9 @@ with open("stimuli.csv", "w", newline="") as f:
 
 ## Batch Parsing Export
 
-### parse_batch_from_csv
+### Batch Parsing Functions
 
-::: bspe.batch_parsing.parse_batch_from_csv
-
-### parse_batch_from_txt
-
-::: bspe.batch_parsing.parse_batch_from_txt
-
-### CsvBatchColumns
-
-::: bspe.batch_parsing.CsvBatchColumns
+Batch parsing is covered in [Records & Parsing API](records-parsing.md#batch-parsing).
 
 ## Roundtrip Workflows
 

@@ -6,15 +6,57 @@ Synthetic sequence generation and optimization.
 
 ### search_stimulus
 
-::: bspe.stimulus_search.search_stimulus
+Generate synthetic sequences satisfying constraints and optimized for preferences:
+
+```python
+from bspe import search_stimulus, StimulusConstraints, StimulusPreferences
+
+result = search_stimulus(
+    labels=labels,
+    constraints=StimulusConstraints(
+        minimum_length=20,
+        maximum_length=30,
+        entropy_bits_minimum=0.3,
+        entropy_bits_maximum=0.7,
+    ),
+    preferences=StimulusPreferences(
+        target_entropy_bits=0.5,
+        require_transition_cross=True,
+    ),
+    max_candidates=100,
+)
+```
+
+**Parameters:**
+- `labels`: BinaryLabels for observable names
+- `constraints`: StimulusConstraints (hard requirements)
+- `preferences`: StimulusPreferences (optimization goals)
+- `max_candidates`: Maximum candidates to generate (default: 1000)
+
+**Returns:** StimulusSearchResult with ranked candidates
 
 ## Configuration Classes
 
 ### StimulusConstraints
 
-::: bspe.stimulus_search_types.StimulusConstraints
+Hard constraints that all generated sequences must satisfy:
 
-Hard constraints that all generated sequences must satisfy.
+```python
+from bspe import StimulusConstraints
+
+constraints = StimulusConstraints(
+    minimum_length=20,
+    maximum_length=30,
+    entropy_bits_minimum=0.0,
+    entropy_bits_maximum=1.0,
+    observable_a_min=0.3,
+    observable_a_max=0.7,
+    transition_same_min=0.0,
+    transition_same_max=1.0,
+    first_observable_index=None,  # Optional: 0 or 1
+    last_observable_index=None,   # Optional: 0 or 1
+)
+```
 
 **Fields:**
 
@@ -31,17 +73,21 @@ Hard constraints that all generated sequences must satisfy.
 
 ### StimulusPreferences
 
-::: bspe.stimulus_search_types.StimulusPreferences
+Soft constraints (optimization goals) used for ranking:
 
-Soft constraints (optimization goals) used for ranking.
+```python
+from bspe import StimulusPreferences
 
-**Fields:**
+preferences = StimulusPreferences(
+    target_entropy_bits=0.5,  # Prefer entropy near this value
+    require_transition_a=True,  # Prefer sequences with A→A transitions
+    require_transition_b=False,  # Prefer sequences with B→B transitions
+    require_transition_cross=True,  # Prefer cross transitions (A→B or B→A)
+    target_observable_index=0,  # Optional: prefer sequences with observable 0
+)
+```
 
-- `target_entropy_bits` (float|None): Prefer sequences near this entropy
-- `require_transition_a` (bool): Prefer sequences with at least one A→A transition
-- `require_transition_b` (bool): Prefer sequences with at least one B→B transition
-- `require_transition_cross` (bool): Prefer sequences with at least one A→B or B→A transition
-- `target_observable_index` (0|1|None): Prefer sequences of specific observable
+**All fields optional; only specified preferences affect ranking.**
 
 ## Results
 
@@ -73,9 +119,25 @@ ranking_score = candidate.ranking_score  # Higher is better
 
 ### Constraint Validation Errors
 
-::: bspe.stimulus_search_types.InvalidStimulusSearchConfigurationError
+**InvalidStimulusSearchConfigurationError**
 
-Raised when constraints are contradictory or infeasible.
+Raised when constraints are contradictory or infeasible:
+
+```python
+from bspe import search_stimulus, InvalidStimulusSearchConfigurationError
+
+try:
+    result = search_stimulus(
+        labels,
+        StimulusConstraints(
+            entropy_bits_minimum=0.95,
+            entropy_bits_maximum=0.1,  # Contradictory!
+        ),
+        preferences,
+    )
+except InvalidStimulusSearchConfigurationError as e:
+    print(f"Invalid constraint: {e}")
+```
 
 ## Usage Patterns
 
@@ -221,4 +283,4 @@ with open("stimuli.csv", "w", newline="") as f:
 - [Stimulus Search User Guide](../user-guide/stimulus-search.md)
 - [Examples: Stimulus Search](../examples/stimulus-search.md)
 - [API: Analysis Methods](analysis-methods.md)
-- [Glossary: Stimulus](../reference/glossary.md#stimulus)
+- [Glossary](../reference/glossary.md)

@@ -175,7 +175,7 @@ For full list, see `src/bspe/__init__.py`.
 
 ## See Also
 
-- [Getting Started](../getting-started/overview.md)
+- [Getting Started: Concepts](../getting-started/concepts.md)
 - [Concepts](../getting-started/concepts.md)
 - [Examples](../examples/vmm-analysis.md)
 - [Troubleshooting](../reference/troubleshooting.md)

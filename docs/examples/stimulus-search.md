@@ -422,5 +422,5 @@ for config_name, candidates in results_by_config.items():
 ## See Also
 
 - [Stimulus Search User Guide](../user-guide/stimulus-search.md)
-- [Concepts: Stimulus](../getting-started/concepts.md#stimulus)
+- [Concepts](../getting-started/concepts.md)
 - [API Reference: Stimulus Search](../api/stimulus-search.md)

@@ -1,0 +1,50 @@
+/* Custom Material for MkDocs overrides */
+
+:root {
+  --md-primary-fg-color: #1f77b4;
+  --md-accent-fg-color: #1f77b4;
+}
+
+/* Code block improvements */
+.md-typeset code {
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 0.2em 0.4em;
+  border-radius: 0.25rem;
+}
+
+.md-typeset pre > code {
+  background-color: transparent;
+  padding: 0;
+}
+
+/* Admonition styling */
+.md-typeset .admonition {
+  border-left: 4px solid;
+}
+
+/* Table improvements */
+.md-typeset table {
+  font-size: 0.9em;
+}
+
+.md-typeset table thead {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Math rendering */
+.arithmatex {
+  overflow-x: auto;
+}
+
+/* API reference improvements */
+.doc-symbol {
+  font-family: "Roboto Mono", monospace;
+  font-size: 0.9em;
+}
+
+.doc-signature {
+  background-color: rgba(0, 0, 0, 0.02);
+  padding: 1em;
+  border-radius: 0.25rem;
+  overflow-x: auto;
+}
