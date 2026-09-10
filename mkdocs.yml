@@ -1,0 +1,153 @@
+site_name: bspe — Binary Sequence Prediction & Entropy
+site_description: Typed Python framework for binary-sequence predictive entropy analysis
+site_author: Ruzgar Ozturk
+site_url: https://rzgrozt.github.io/binary-context-entropy-calculator
+repo_url: https://github.com/rzgrozt/binary-context-entropy-calculator
+repo_name: rzgrozt/binary-context-entropy-calculator
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - content.code.copy
+    - content.code.select
+    - content.tabs.link
+    - navigation.instant
+    - navigation.instant.prefetch
+    - navigation.instant.progress
+    - navigation.path
+    - navigation.prune
+    - navigation.sections
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.top
+    - search.highlight
+    - search.share
+    - search.suggest
+    - toc.follow
+
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            show_source: true
+            show_root_heading: true
+            show_root_full_path: false
+            show_object_full_path: false
+            show_category_heading: true
+            members_order: source
+            filters:
+              - "!^_"
+            merge_init_into_class: true
+            docstring_options:
+              ignore_init_summary: false
+              returns_multiple_items: false
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - codehilite
+  - def_list
+  - footnotes
+  - md_in_html
+  - meta
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_generator: !!python/name:pymdownx.emoji.to_svg
+      emoji_index: !!python/name:pymdownx.emoji.twemoji
+  - pymdownx.highlight:
+      use_pygments: true
+      anchor_linenums: true
+      line_spans: __span
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+  - tables
+  - toc:
+      permalink: true
+      toc_depth: 3
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Quick Start: getting-started/quick-start.md
+      - Concepts: getting-started/concepts.md
+  - User Guide:
+      - Overview: user-guide/overview.md
+      - Input Formats: user-guide/input-formats.md
+      - Methods:
+          - Variable-order Markov: user-guide/methods/vmm.md
+          - First-order Markov: user-guide/methods/markov.md
+          - Hidden Markov Model: user-guide/methods/hmm.md
+          - Observed Shannon Entropy: user-guide/methods/shannon.md
+      - Stimulus Search: user-guide/stimulus-search.md
+      - Workbench: user-guide/workbench.md
+  - Examples:
+      - VMM Analysis: examples/vmm-analysis.md
+      - HMM Analysis: examples/hmm-analysis.md
+      - Stimulus Search: examples/stimulus-search.md
+      - Markov Comparison: examples/markov-comparison.md
+  - API Reference:
+      - Overview: api/overview.md
+      - Records & Parsing: api/records-parsing.md
+      - Analysis Methods: api/analysis-methods.md
+      - Stimulus Search: api/stimulus-search.md
+      - Serialization: api/serialization.md
+      - Exceptions: api/exceptions.md
+  - Developer Guide:
+      - Contributing: developer/contributing.md
+      - Architecture: developer/architecture.md
+      - Testing: developer/testing.md
+  - Reference:
+      - FAQ: reference/faq.md
+      - Troubleshooting: reference/troubleshooting.md
+      - Performance: reference/performance.md
+      - Glossary: reference/glossary.md
+      - Changelog: reference/changelog.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/rzgrozt/binary-context-entropy-calculator
+  version:
+    provider: mike
+
+extra_css:
+  - stylesheets/extra.css
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
