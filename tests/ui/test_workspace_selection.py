@@ -4,10 +4,10 @@ from typing import Protocol, runtime_checkable
 
 import pytest
 
-from binary_entropy.records import SequenceDataset
-from binary_entropy.ui import workbench_state
-from binary_entropy.ui.session import WorkbenchCalculationRecord
-from binary_entropy.ui.workbench_state import (
+from bspe.records import SequenceDataset
+from bspe.ui import workbench_state
+from bspe.ui.session import WorkbenchCalculationRecord
+from bspe.ui.workbench_state import (
     MarkovWorkflow,
     WorkbenchCalculationOutcome,
     WorkbenchForm,
@@ -40,7 +40,7 @@ class _SelectionApi(Protocol):
 
 
 def _selection_api() -> _SelectionApi:
-    module = importlib.import_module("binary_entropy.ui.workspace_selection")
+    module = importlib.import_module("bspe.ui.workspace_selection")
     assert isinstance(module, _SelectionApi)
     return module
 

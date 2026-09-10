@@ -1,8 +1,8 @@
 import pytest
 
-from binary_entropy.domain import BinaryLabels
-from binary_entropy.errors import DatasetValidationError
-from binary_entropy.records import SequenceDataset, SequenceRecord
+from bspe.domain import BinaryLabels
+from bspe.errors import DatasetValidationError
+from bspe.records import SequenceDataset, SequenceRecord
 
 
 def _labels() -> BinaryLabels:

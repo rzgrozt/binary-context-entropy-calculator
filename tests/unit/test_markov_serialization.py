@@ -6,14 +6,14 @@ from typing import ClassVar, Literal
 import pytest
 from pydantic import BaseModel, ConfigDict
 
-from binary_entropy.domain import BinaryLabels
-from binary_entropy.markov_serialization import (
+from bspe.domain import BinaryLabels
+from bspe.markov_serialization import (
     markov_model_json,
     markov_sequence_csv,
 )
-from binary_entropy.markov_types import MarkovPredictionMode
-from binary_entropy.methods.markov import analyze_markov, analyze_markov_per_sequence
-from binary_entropy.records import BinarySequence, SequenceDataset, SequenceRecord
+from bspe.markov_types import MarkovPredictionMode
+from bspe.methods.markov import analyze_markov, analyze_markov_per_sequence
+from bspe.records import BinarySequence, SequenceDataset, SequenceRecord
 
 
 class _MarkovJsonView(BaseModel):

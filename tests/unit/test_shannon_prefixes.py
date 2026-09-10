@@ -1,8 +1,8 @@
 import pytest
 
-from binary_entropy.domain import BinaryLabels
-from binary_entropy.methods.shannon import analyze_shannon
-from binary_entropy.records import SequenceDataset, SequenceRecord
+from bspe.domain import BinaryLabels
+from bspe.methods.shannon import analyze_shannon
+from bspe.records import SequenceDataset, SequenceRecord
 
 
 def test_analyze_shannon_when_sequence_is_aab_has_exact_nonempty_prefixes() -> None:

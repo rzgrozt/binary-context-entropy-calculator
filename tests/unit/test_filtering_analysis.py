@@ -3,21 +3,21 @@ import math
 import numpy as np
 import pytest
 
-from binary_entropy.analysis import analyze_sequence
-from binary_entropy.domain import (
+from bspe.analysis import analyze_sequence
+from bspe.domain import (
     BinaryHMM,
     BinaryLabels,
     ObservableIndex,
     TargetClassification,
     float_values,
 )
-from binary_entropy.errors import ZeroLikelihoodError
-from binary_entropy.filtering import (
+from bspe.errors import ZeroLikelihoodError
+from bspe.filtering import (
     ObservedSymbol,
     filter_observation,
     initial_prediction,
 )
-from binary_entropy.information import surprisal
+from bspe.information import surprisal
 from tests.unit.helpers import hand_model, hand_sequence, load_hand_fixture
 
 

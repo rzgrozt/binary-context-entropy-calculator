@@ -5,8 +5,8 @@ import pytest
 from streamlit.testing.v1 import AppTest
 from streamlit.testing.v1.element_tree import ButtonGroup, Markdown, Radio, Selectbox
 
-from binary_entropy.ui.session import WorkbenchCalculationRecord
-from binary_entropy.ui.text import joined_text
+from bspe.ui.session import WorkbenchCalculationRecord
+from bspe.ui.text import joined_text
 
 APP_PATH: Final = Path(__file__).parents[2] / "streamlit_app.py"
 ALL_METHODS: Final = [

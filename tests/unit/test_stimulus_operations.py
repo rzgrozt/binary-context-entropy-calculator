@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from binary_entropy import (
+from bspe import (
     BinaryLabels,
     KTSmoothing,
     SequenceDataset,
@@ -10,14 +10,14 @@ from binary_entropy import (
     VMMResultScope,
     analyze_dataset,
 )
-from binary_entropy.stimulus_matching import (
+from bspe.stimulus_matching import (
     create_complement_candidates,
     match_stimuli,
 )
-from binary_entropy.stimulus_search import search_stimuli
-from binary_entropy.stimulus_search_results import MatchTolerances, TargetCongruency
-from binary_entropy.stimulus_search_types import StimulusSearchConfig
-from binary_entropy.stimulus_targets import assign_targets, validate_stimuli
+from bspe.stimulus_search import search_stimuli
+from bspe.stimulus_search_results import MatchTolerances, TargetCongruency
+from bspe.stimulus_search_types import StimulusSearchConfig
+from bspe.stimulus_targets import assign_targets, validate_stimuli
 
 
 def _search_config() -> StimulusSearchConfig:

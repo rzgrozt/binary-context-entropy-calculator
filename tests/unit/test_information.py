@@ -2,8 +2,8 @@ import math
 
 import pytest
 
-from binary_entropy.errors import ProbabilityRangeError
-from binary_entropy.information import binary_entropy, surprisal
+from bspe.errors import ProbabilityRangeError
+from bspe.information import binary_entropy, surprisal
 
 
 @pytest.mark.parametrize(

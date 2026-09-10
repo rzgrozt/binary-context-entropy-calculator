@@ -1,4 +1,4 @@
-from binary_entropy import (
+from bspe import (
     AdditiveSmoothing,
     InclusiveRange,
     PreferenceMetric,

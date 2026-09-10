@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from binary_entropy import (
+from bspe import (
     BinaryLabels,
     KTSmoothing,
     SequenceDataset,
@@ -12,9 +12,9 @@ from binary_entropy import (
     VMMResultScope,
     analyze_dataset,
 )
-from binary_entropy.stimulus_search import search_stimuli
-from binary_entropy.stimulus_search_results import SearchPartialReason, SearchStatus
-from binary_entropy.stimulus_search_types import (
+from bspe.stimulus_search import search_stimuli
+from bspe.stimulus_search_results import SearchPartialReason, SearchStatus
+from bspe.stimulus_search_types import (
     InclusiveRange,
     PredictedSymbol,
     PreferenceMetric,

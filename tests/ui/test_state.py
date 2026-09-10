@@ -2,7 +2,7 @@ from dataclasses import replace
 
 import pytest
 
-from binary_entropy.ui.state import (
+from bspe.ui.state import (
     ActualTargetChoice,
     CalculationFailure,
     CalculationOutcome,

@@ -1,16 +1,16 @@
 import numpy as np
 
-from binary_entropy.domain import BinaryLabels
-from binary_entropy.markov_types import (
+from bspe.domain import BinaryLabels
+from bspe.markov_types import (
     MarkovPredictionMode,
     MarkovResultScope,
 )
-from binary_entropy.methods.markov import (
+from bspe.methods.markov import (
     analyze_markov,
     analyze_markov_per_sequence,
 )
-from binary_entropy.records import SequenceDataset, SequenceRecord
-from binary_entropy.workbench import MarkovAnalysisRequest, analyze_dataset
+from bspe.records import SequenceDataset, SequenceRecord
+from bspe.workbench import MarkovAnalysisRequest, analyze_dataset
 
 
 def _different_transition_dataset() -> SequenceDataset:

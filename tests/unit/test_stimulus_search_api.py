@@ -3,7 +3,7 @@ import importlib
 
 def test_public_api_when_package_is_imported_exposes_stimulus_search() -> None:
     # Given
-    package = importlib.import_module("binary_entropy")
+    package = importlib.import_module("bspe")
 
     # When
     exported = tuple(

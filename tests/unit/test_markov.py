@@ -3,11 +3,11 @@ import math
 import numpy as np
 import pytest
 
-from binary_entropy.domain import BinaryLabels, ObservableIndex
-from binary_entropy.errors import InvalidSmoothingAlphaError
-from binary_entropy.markov_types import MarkovEstimation, MarkovPredictionMode
-from binary_entropy.methods.markov import analyze_markov, fit_markov, predict_markov
-from binary_entropy.records import BinarySequence, SequenceDataset, SequenceRecord
+from bspe.domain import BinaryLabels, ObservableIndex
+from bspe.errors import InvalidSmoothingAlphaError
+from bspe.markov_types import MarkovEstimation, MarkovPredictionMode
+from bspe.methods.markov import analyze_markov, fit_markov, predict_markov
+from bspe.records import BinarySequence, SequenceDataset, SequenceRecord
 
 
 def _dataset(

@@ -2,8 +2,8 @@ from dataclasses import replace
 
 import pytest
 
-from binary_entropy.ui.results import final_metrics, prefix_dataframe
-from binary_entropy.ui.state import (
+from bspe.ui.results import final_metrics, prefix_dataframe
+from bspe.ui.state import (
     CalculationFailure,
     CalculationSuccess,
     CalculatorForm,

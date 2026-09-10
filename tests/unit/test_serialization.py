@@ -5,9 +5,9 @@ import math
 
 import pytest
 
-from binary_entropy.analysis import analyze_sequence
-from binary_entropy.errors import PresetDecodeError, PresetSchemaError
-from binary_entropy.serialization import (
+from bspe.analysis import analyze_sequence
+from bspe.errors import PresetDecodeError, PresetSchemaError
+from bspe.serialization import (
     CandidateMetadata,
     candidate_summary_csv,
     model_from_preset,

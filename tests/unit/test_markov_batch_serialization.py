@@ -1,11 +1,11 @@
 import csv
 import io
 
-from binary_entropy.domain import BinaryLabels
-from binary_entropy.markov_batch_serialization import markov_batch_summary_csv
-from binary_entropy.markov_types import MarkovBatchAnalysis
-from binary_entropy.methods.markov import analyze_markov, analyze_markov_per_sequence
-from binary_entropy.records import SequenceDataset, SequenceRecord
+from bspe.domain import BinaryLabels
+from bspe.markov_batch_serialization import markov_batch_summary_csv
+from bspe.markov_types import MarkovBatchAnalysis
+from bspe.methods.markov import analyze_markov, analyze_markov_per_sequence
+from bspe.records import SequenceDataset, SequenceRecord
 
 
 def _analysis_with_target_b() -> MarkovBatchAnalysis:

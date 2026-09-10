@@ -1,7 +1,7 @@
 import csv
 import io
 
-from binary_entropy import (
+from bspe import (
     BinaryLabels,
     MarkovAnalysisRequest,
     analyze_dataset,
@@ -9,7 +9,7 @@ from binary_entropy import (
     markov_sequence_csv,
     parse_csv_batch,
 )
-from binary_entropy.batch_parsing import CsvBatchColumns
+from bspe.batch_parsing import CsvBatchColumns
 
 
 def test_workbench_when_csv_batch_routes_to_markov_exports_end_to_end() -> None:

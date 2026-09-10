@@ -5,7 +5,7 @@ from typing import ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from binary_entropy import (
+from bspe import (
     BinaryLabels,
     KTSmoothing,
     MLESmoothing,

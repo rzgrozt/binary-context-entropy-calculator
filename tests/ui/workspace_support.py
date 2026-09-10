@@ -1,7 +1,7 @@
 from dataclasses import replace
 
-from binary_entropy.ui.session import WorkbenchCalculationRecord
-from binary_entropy.ui.workbench_state import (
+from bspe.ui.session import WorkbenchCalculationRecord
+from bspe.ui.workbench_state import (
     InputMode,
     MarkovWorkflow,
     MethodChoice,

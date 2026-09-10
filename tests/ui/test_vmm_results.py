@@ -3,17 +3,17 @@ import math
 import pytest
 import streamlit as st
 
-from binary_entropy.domain import BinaryLabels
-from binary_entropy.methods.vmm import analyze_vmm
-from binary_entropy.records import SequenceDataset, SequenceRecord
-from binary_entropy.ui.tokens import UI_NUMBER_FORMAT
-from binary_entropy.ui.vmm_results import (
+from bspe.domain import BinaryLabels
+from bspe.methods.vmm import analyze_vmm
+from bspe.records import SequenceDataset, SequenceRecord
+from bspe.ui.tokens import UI_NUMBER_FORMAT
+from bspe.ui.vmm_results import (
     vmm_depth_column_config,
     vmm_depth_dataframe,
     vmm_final_column_config,
     vmm_record_dataframe,
 )
-from binary_entropy.vmm_types import VMMConfig
+from bspe.vmm_types import VMMConfig
 
 
 def _recurrent_dataset() -> SequenceDataset:

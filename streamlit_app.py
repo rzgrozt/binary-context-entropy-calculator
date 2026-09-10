@@ -5,15 +5,15 @@ from typing import Final, assert_never
 
 import streamlit as st
 
-from binary_entropy.ui.results_view import render_results
-from binary_entropy.ui.session import workbench_submission_failure
-from binary_entropy.ui.sidebar import render_sidebar
-from binary_entropy.ui.stimulus_view import (
+from bspe.ui.results_view import render_results
+from bspe.ui.session import workbench_submission_failure
+from bspe.ui.sidebar import render_sidebar
+from bspe.ui.stimulus_view import (
     render_stimulus_search,
     render_stimulus_search_sidebar,
 )
-from binary_entropy.ui.text import joined_text
-from binary_entropy.ui.workspace_mode import (
+from bspe.ui.text import joined_text
+from bspe.ui.workspace_mode import (
     WorkspaceMode,
     preserve_hidden_workspace_widget_state,
     render_workspace_mode,

@@ -1,4 +1,4 @@
-from binary_entropy import (
+from bspe import (
     BinaryLabels,
     SequenceDataset,
     SequenceRecord,
@@ -8,7 +8,7 @@ from binary_entropy import (
     vmm_context_model_json,
     vmm_evaluation_csv,
 )
-from binary_entropy.ui.vmm_artifacts import (
+from bspe.ui.vmm_artifacts import (
     VMM_EXPERIMENTAL_NOTICE,
     vmm_download_artifacts,
     vmm_reproducibility_lines,

@@ -1,20 +1,20 @@
 import numpy as np
 import pytest
 
-from binary_entropy.domain import BinaryLabels
-from binary_entropy.markov_information import (
+from bspe.domain import BinaryLabels
+from bspe.markov_information import (
     empirical_conditional_entropy,
     entropy_rate,
     stationary_distribution,
 )
-from binary_entropy.markov_types import (
+from bspe.markov_types import (
     StationaryUnavailableReason,
     TransitionMatrix,
     UnavailableStationaryDistribution,
     UniqueStationaryDistribution,
 )
-from binary_entropy.methods.markov import analyze_markov
-from binary_entropy.records import BinarySequence, SequenceDataset, SequenceRecord
+from bspe.methods.markov import analyze_markov
+from bspe.records import BinarySequence, SequenceDataset, SequenceRecord
 
 
 def _dataset(sequences: tuple[BinarySequence, ...]) -> SequenceDataset:

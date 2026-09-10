@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from binary_entropy import (
+from bspe import (
     KTSmoothing,
     VMMAnalysis,
     VMMAnalysisRequest,
@@ -10,13 +10,13 @@ from binary_entropy import (
     analyze_vmm,
     analyze_vmm_per_sequence,
 )
-from binary_entropy.analysis import analyze_sequence
-from binary_entropy.domain import BinaryLabels, ObservableIndex
-from binary_entropy.markov_types import MarkovBatchAnalysis, MarkovPredictionMode
-from binary_entropy.methods.hmm import HMMBatchAnalysis, analyze_hmm
-from binary_entropy.methods.shannon import ShannonBatchAnalysis, analyze_shannon
-from binary_entropy.records import BinarySequence, SequenceDataset, SequenceRecord
-from binary_entropy.workbench import (
+from bspe.analysis import analyze_sequence
+from bspe.domain import BinaryLabels, ObservableIndex
+from bspe.markov_types import MarkovBatchAnalysis, MarkovPredictionMode
+from bspe.methods.hmm import HMMBatchAnalysis, analyze_hmm
+from bspe.methods.shannon import ShannonBatchAnalysis, analyze_shannon
+from bspe.records import BinarySequence, SequenceDataset, SequenceRecord
+from bspe.workbench import (
     AnalysisMethod,
     HMMAnalysisRequest,
     MarkovAnalysisRequest,

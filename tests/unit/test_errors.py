@@ -1,6 +1,6 @@
 import pytest
 
-from binary_entropy.errors import (
+from bspe.errors import (
     BinaryEntropyError,
     DuplicateLabelError,
     InvalidLabelError,

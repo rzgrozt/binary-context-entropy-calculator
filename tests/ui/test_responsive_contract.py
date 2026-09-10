@@ -4,15 +4,15 @@ from typing import Final
 
 ROOT: Final = Path(__file__).parents[2]
 APP_PATH: Final = ROOT / "streamlit_app.py"
-COMPARISON_PATH: Final = ROOT / "src/binary_entropy/ui/comparison.py"
-MODEL_INPUTS_PATH: Final = ROOT / "src/binary_entropy/ui/model_inputs.py"
-RESULTS_VIEW_PATH: Final = ROOT / "src/binary_entropy/ui/results_view.py"
-SIDEBAR_PATH: Final = ROOT / "src/binary_entropy/ui/sidebar.py"
-FORM_PATH: Final = ROOT / "src/binary_entropy/ui/form.py"
-MARKOV_VIEW_PATH: Final = ROOT / "src/binary_entropy/ui/markov_view.py"
-MARKOV_MODEL_VIEW_PATH: Final = ROOT / "src/binary_entropy/ui/markov_model_view.py"
-SUMMARY_PATH: Final = ROOT / "src/binary_entropy/ui/summary.py"
-SHANNON_RESULTS_PATH: Final = ROOT / "src/binary_entropy/ui/shannon_results.py"
+COMPARISON_PATH: Final = ROOT / "src/bspe/ui/comparison.py"
+MODEL_INPUTS_PATH: Final = ROOT / "src/bspe/ui/model_inputs.py"
+RESULTS_VIEW_PATH: Final = ROOT / "src/bspe/ui/results_view.py"
+SIDEBAR_PATH: Final = ROOT / "src/bspe/ui/sidebar.py"
+FORM_PATH: Final = ROOT / "src/bspe/ui/form.py"
+MARKOV_VIEW_PATH: Final = ROOT / "src/bspe/ui/markov_view.py"
+MARKOV_MODEL_VIEW_PATH: Final = ROOT / "src/bspe/ui/markov_model_view.py"
+SUMMARY_PATH: Final = ROOT / "src/bspe/ui/summary.py"
+SHANNON_RESULTS_PATH: Final = ROOT / "src/bspe/ui/shannon_results.py"
 STYLES_PATH: Final = ROOT / "assets/styles.css"
 MAIN_CONTAINER: Final = '.stApp [data-testid="stMainBlockContainer"]'
 PROBABILITY_GRID: Final = (

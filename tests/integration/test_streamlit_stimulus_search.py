@@ -1,6 +1,6 @@
 from typing import Final
 
-from binary_entropy import InclusiveRange, SearchStatus
+from bspe import InclusiveRange, SearchStatus
 
 from .stimulus_app_support import (
     CANDIDATE_KEY,

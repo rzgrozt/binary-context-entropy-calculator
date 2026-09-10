@@ -5,13 +5,13 @@ from dataclasses import replace
 
 import pytest
 
-from binary_entropy import VMMConfig
-from binary_entropy.information import binary_entropy
-from binary_entropy.stimulus_matching import create_complement_candidates, match_stimuli
-from binary_entropy.stimulus_search import evaluate_candidate, search_stimuli
-from binary_entropy.stimulus_search_json import stimulus_generator_config_json
-from binary_entropy.stimulus_search_results import MatchTolerances
-from binary_entropy.stimulus_search_types import (
+from bspe import VMMConfig
+from bspe.information import binary_entropy
+from bspe.stimulus_matching import create_complement_candidates, match_stimuli
+from bspe.stimulus_search import evaluate_candidate, search_stimuli
+from bspe.stimulus_search_json import stimulus_generator_config_json
+from bspe.stimulus_search_results import MatchTolerances
+from bspe.stimulus_search_types import (
     InclusiveRange,
     PredictedSymbol,
     StimulusConstraints,

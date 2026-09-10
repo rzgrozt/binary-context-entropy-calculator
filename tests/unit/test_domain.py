@@ -3,8 +3,8 @@ import math
 import numpy as np
 import pytest
 
-from binary_entropy.domain import BinaryHMM, BinaryLabels
-from binary_entropy.errors import (
+from bspe.domain import BinaryHMM, BinaryLabels
+from bspe.errors import (
     DuplicateLabelError,
     InvalidLabelError,
     ProbabilityRangeError,

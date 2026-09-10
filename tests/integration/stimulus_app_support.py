@@ -5,9 +5,9 @@ from typing import Final, Protocol
 from streamlit.testing.v1 import AppTest
 from streamlit.testing.v1.element_tree import ButtonGroup, Radio, Selectbox
 
-from binary_entropy import MatchingResult, SearchResult
-from binary_entropy.ui.session import WorkbenchCalculationRecord
-from binary_entropy.ui.stimulus_session import StimulusSearchFailure
+from bspe import MatchingResult, SearchResult
+from bspe.ui.session import WorkbenchCalculationRecord
+from bspe.ui.stimulus_session import StimulusSearchFailure
 
 APP_PATH: Final = Path(__file__).parents[2] / "streamlit_app.py"
 MODE_KEY: Final = "workbench-workspace-mode"

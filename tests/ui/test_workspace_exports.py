@@ -4,23 +4,23 @@ import io
 from collections.abc import Callable, Sequence
 from typing import Protocol, runtime_checkable
 
-from binary_entropy.markov_batch_serialization import markov_batch_summary_csv
-from binary_entropy.markov_serialization import markov_model_json, markov_sequence_csv
-from binary_entropy.markov_types import MarkovBatchAnalysis
-from binary_entropy.methods.hmm import HMMBatchAnalysis
-from binary_entropy.serialization import (
+from bspe.markov_batch_serialization import markov_batch_summary_csv
+from bspe.markov_serialization import markov_model_json, markov_sequence_csv
+from bspe.markov_types import MarkovBatchAnalysis
+from bspe.methods.hmm import HMMBatchAnalysis
+from bspe.serialization import (
     CandidateMetadata,
     candidate_summary_csv,
     prefix_csv,
 )
-from binary_entropy.ui.session import WorkbenchCalculationRecord
-from binary_entropy.ui.workbench_state import MarkovWorkflow, WorkbenchForm
-from binary_entropy.vmm_serialization import (
+from bspe.ui.session import WorkbenchCalculationRecord
+from bspe.ui.workbench_state import MarkovWorkflow, WorkbenchForm
+from bspe.vmm_serialization import (
     vmm_context_evidence_csv,
     vmm_context_model_json,
     vmm_evaluation_csv,
 )
-from binary_entropy.vmm_types import VMMAnalysis
+from bspe.vmm_types import VMMAnalysis
 from tests.ui.workspace_support import calculated_workspace
 
 
@@ -42,7 +42,7 @@ class _ExportsApi(Protocol):
 
 
 def _exports_api() -> _ExportsApi:
-    module = importlib.import_module("binary_entropy.ui.workspace_exports")
+    module = importlib.import_module("bspe.ui.workspace_exports")
     assert isinstance(module, _ExportsApi)
     return module
 

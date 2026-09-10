@@ -2,15 +2,15 @@ import math
 
 import pytest
 
-from binary_entropy.domain import BinaryLabels, TargetClassification
-from binary_entropy.information import binary_entropy, surprisal
-from binary_entropy.methods.vmm import (
+from bspe.domain import BinaryLabels, TargetClassification
+from bspe.information import binary_entropy, surprisal
+from bspe.methods.vmm import (
     analyze_vmm,
     analyze_vmm_per_sequence,
     fit_vmm,
 )
-from binary_entropy.records import SequenceDataset, SequenceRecord
-from binary_entropy.vmm_types import (
+from bspe.records import SequenceDataset, SequenceRecord
+from bspe.vmm_types import (
     AdditiveSmoothing,
     InvalidVMMConfigurationError,
     KTSmoothing,

@@ -4,7 +4,7 @@ from typing import Final
 import pandas as pd
 from streamlit.testing.v1 import AppTest
 
-from binary_entropy.ui.state import ActualTargetChoice
+from bspe.ui.state import ActualTargetChoice
 
 APP_PATH: Final = Path(__file__).parents[2] / "streamlit_app.py"
 TAB_KEY: Final = "workspace-method-tabs"

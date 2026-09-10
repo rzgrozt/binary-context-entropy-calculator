@@ -2,7 +2,7 @@ import math
 
 import pytest
 
-from binary_entropy.ui.state import ActualTargetChoice
+from bspe.ui.state import ActualTargetChoice
 
 from .vmm_app_support import calculate, select_subview, workspace
 

@@ -2,21 +2,21 @@ from dataclasses import replace
 
 import plotly.graph_objects as go
 
-from binary_entropy.markov_types import MarkovBatchAnalysis
-from binary_entropy.ui.chart import (
+from bspe.markov_types import MarkovBatchAnalysis
+from bspe.ui.chart import (
     entropy_chart_spec,
     entropy_figure,
     markov_chart_spec,
     markov_entropy_figure,
     markov_probability_figure,
 )
-from binary_entropy.ui.state import (
+from bspe.ui.state import (
     CalculationFailure,
     CalculationSuccess,
     calculate_form,
     default_form,
 )
-from binary_entropy.ui.workbench_state import (
+from bspe.ui.workbench_state import (
     MarkovWorkflow,
     WorkbenchCalculationSuccess,
     calculate_workbench,

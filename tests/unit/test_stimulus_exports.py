@@ -3,16 +3,16 @@ import io
 from dataclasses import replace
 from datetime import UTC, datetime
 
-from binary_entropy import KTSmoothing, VMMConfig
-from binary_entropy.stimulus_search import search_stimuli
-from binary_entropy.stimulus_search_csv import (
+from bspe import KTSmoothing, VMMConfig
+from bspe.stimulus_search import search_stimuli
+from bspe.stimulus_search_csv import (
     stimulus_candidate_csv,
     stimulus_experiment_csv,
     stimulus_scientific_csv,
 )
-from binary_entropy.stimulus_search_results import SearchResult
-from binary_entropy.stimulus_search_types import StimulusSearchConfig
-from binary_entropy.stimulus_targets import assign_targets
+from bspe.stimulus_search_results import SearchResult
+from bspe.stimulus_search_types import StimulusSearchConfig
+from bspe.stimulus_targets import assign_targets
 
 
 def _result() -> SearchResult:

@@ -1,7 +1,7 @@
 import pandas as pd  # noqa: PANDAS_OK
 
-from binary_entropy.analysis import analyze_sequence
-from binary_entropy.presentation import analysis_dataframe, format_decimal
+from bspe.analysis import analyze_sequence
+from bspe.presentation import analysis_dataframe, format_decimal
 from tests.unit.helpers import hand_model, hand_sequence
 
 

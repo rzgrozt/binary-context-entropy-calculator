@@ -1,9 +1,9 @@
 import pytest
 
-from binary_entropy import KTSmoothing, VMMConfig
-from binary_entropy.stimulus_generation import generate_candidate_records
-from binary_entropy.stimulus_metrics import sequence_metrics
-from binary_entropy.stimulus_search_types import (
+from bspe import KTSmoothing, VMMConfig
+from bspe.stimulus_generation import generate_candidate_records
+from bspe.stimulus_metrics import sequence_metrics
+from bspe.stimulus_search_types import (
     InclusiveRange,
     InvalidStimulusSearchConfigurationError,
     StimulusConstraints,

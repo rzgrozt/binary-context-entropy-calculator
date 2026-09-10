@@ -3,14 +3,14 @@ from typing import ClassVar
 import plotly.graph_objects as go
 from pydantic import BaseModel, ConfigDict
 
-from binary_entropy.domain import BinaryLabels
-from binary_entropy.methods.vmm import analyze_vmm_per_sequence
-from binary_entropy.records import SequenceDataset, SequenceRecord
-from binary_entropy.ui.vmm_chart import (
+from bspe.domain import BinaryLabels
+from bspe.methods.vmm import analyze_vmm_per_sequence
+from bspe.records import SequenceDataset, SequenceRecord
+from bspe.ui.vmm_chart import (
     vmm_entropy_chart_spec,
     vmm_entropy_figure,
 )
-from binary_entropy.vmm_types import MLESmoothing, VMMConfig
+from bspe.vmm_types import MLESmoothing, VMMConfig
 
 
 class _TitleView(BaseModel):

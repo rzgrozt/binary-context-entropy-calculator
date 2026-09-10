@@ -2,12 +2,12 @@ from dataclasses import dataclass
 
 import pytest
 
-from binary_entropy.domain import BinaryHMM, BinaryLabels
-from binary_entropy.markov_types import MarkovResultScope
-from binary_entropy.records import SequenceDataset, SequenceRecord
-from binary_entropy.ui.comparison import comparison_dataframe
-from binary_entropy.vmm_types import VMMConfig, VMMResultScope
-from binary_entropy.workbench import (
+from bspe.domain import BinaryHMM, BinaryLabels
+from bspe.markov_types import MarkovResultScope
+from bspe.records import SequenceDataset, SequenceRecord
+from bspe.ui.comparison import comparison_dataframe
+from bspe.vmm_types import VMMConfig, VMMResultScope
+from bspe.workbench import (
     HMMAnalysisRequest,
     MarkovAnalysisRequest,
     ShannonAnalysisRequest,

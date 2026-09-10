@@ -3,16 +3,16 @@ from typing import ClassVar
 
 from pydantic import BaseModel, ConfigDict
 
-from binary_entropy import KTSmoothing, VMMConfig
-from binary_entropy.stimulus_search import search_stimuli
-from binary_entropy.stimulus_search_json import stimulus_generator_config_json
-from binary_entropy.stimulus_search_results import (
+from bspe import KTSmoothing, VMMConfig
+from bspe.stimulus_search import search_stimuli
+from bspe.stimulus_search_json import stimulus_generator_config_json
+from bspe.stimulus_search_results import (
     MatchTolerances,
     MetricSummary,
     SearchResult,
 )
-from binary_entropy.stimulus_search_types import StimulusSearchConfig
-from binary_entropy.stimulus_targets import assign_targets, validate_stimuli
+from bspe.stimulus_search_types import StimulusSearchConfig
+from bspe.stimulus_targets import assign_targets, validate_stimuli
 
 
 class _MetricSummaryView(BaseModel):

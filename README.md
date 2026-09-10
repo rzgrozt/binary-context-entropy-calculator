@@ -1,14 +1,30 @@
-# Binary Sequence Probability, Prediction & Entropy Workbench
+# bspe — Binary Sequence Prediction & Entropy
 
-A local Streamlit workbench with an Analyzer for fitting, comparing, and
-inspecting binary-sequence methods, plus a backend for reproducible bounded
-Stimulus Search. It keeps independently submitted records separate and makes
-the distinction between prediction, description, search, and later target
-assignment explicit.
+`bspe` is a typed Python framework for binary-sequence predictive entropy
+analysis. It bundles a reusable public API (variable-order Markov, first-order
+Markov, configured HMM, and observed Shannon entropy, plus reproducible bounded
+stimulus search) with a local Streamlit workbench for fitting, comparing, and
+inspecting binary-sequence methods. It keeps independently submitted records
+separate and makes the distinction between prediction, description, search, and
+later target assignment explicit.
 
-## Install and run
+## Install
 
 Python 3.13 or newer is required.
+
+Install the framework from PyPI to use the public API in your own code:
+
+```bash
+pip install bspe
+```
+
+```python
+import bspe
+```
+
+## Run the workbench
+
+To run the bundled Streamlit workbench from a source checkout:
 
 ```bash
 uv sync
@@ -350,7 +366,7 @@ The package exposes immutable records, parsers, method requests, and analysis
 functions. This example parses a batch and runs the default VMM analysis:
 
 ```python
-from binary_entropy import (
+from bspe import (
     BinaryLabels,
     VMMAnalysisRequest,
     VMMConfig,
@@ -381,7 +397,7 @@ The stimulus API exposes immutable configuration and result records plus pure
 operations. A minimal bounded search is:
 
 ```python
-from binary_entropy import (
+from bspe import (
     StimulusSearchConfig,
     VMMConfig,
     search_stimuli,
@@ -511,14 +527,14 @@ quality control, and downloads.
 
 If you use this software in research, cite:
 
-> Ozturk, R. (2026). *Binary Sequence Probability, Prediction & Entropy
-> Workbench* (Version 0.1.0) [Computer software]. GitHub.
+> Ozturk, R. (2026). *bspe: Binary Sequence Prediction & Entropy*
+> (Version 0.1.0) [Computer software]. GitHub.
 > https://github.com/rzgrozt/binary-context-entropy-calculator
 
 ```bibtex
-@software{ozturk2026binaryworkbench,
+@software{ozturk2026bspe,
   author  = {Ozturk, Ruzgar},
-  title   = {Binary Sequence Probability, Prediction \& Entropy Workbench},
+  title   = {bspe: Binary Sequence Prediction \& Entropy},
   year    = {2026},
   version = {0.1.0},
   url     = {https://github.com/rzgrozt/binary-context-entropy-calculator}

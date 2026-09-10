@@ -1,8 +1,8 @@
 import pytest
 
-from binary_entropy.domain import BinaryLabels
-from binary_entropy.errors import InvalidSequenceTokenError
-from binary_entropy.parsing import parse_sequence
+from bspe.domain import BinaryLabels
+from bspe.errors import InvalidSequenceTokenError
+from bspe.parsing import parse_sequence
 
 
 def test_parse_sequence_when_text_has_surrounding_whitespace() -> None:

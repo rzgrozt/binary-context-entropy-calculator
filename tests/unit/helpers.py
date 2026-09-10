@@ -3,7 +3,7 @@ from typing import ClassVar, Final, Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from binary_entropy.domain import BinaryHMM, BinaryLabels, ObservableIndex
+from bspe.domain import BinaryHMM, BinaryLabels, ObservableIndex
 
 FIXTURE_PATH: Final = Path(__file__).parents[1] / "fixtures" / "hand_sequence.json"
 

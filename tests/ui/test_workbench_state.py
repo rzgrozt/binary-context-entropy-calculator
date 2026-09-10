@@ -2,11 +2,11 @@ from dataclasses import replace
 
 import pytest
 
-from binary_entropy.markov_types import MarkovBatchAnalysis, MarkovResultScope
-from binary_entropy.methods.hmm import HMMBatchAnalysis
-from binary_entropy.methods.shannon import ShannonBatchAnalysis
-from binary_entropy.ui.state import ActualTargetChoice
-from binary_entropy.ui.workbench_state import (
+from bspe.markov_types import MarkovBatchAnalysis, MarkovResultScope
+from bspe.methods.hmm import HMMBatchAnalysis
+from bspe.methods.shannon import ShannonBatchAnalysis
+from bspe.ui.state import ActualTargetChoice
+from bspe.ui.workbench_state import (
     InputMode,
     MarkovControls,
     MarkovWorkflow,
@@ -18,7 +18,7 @@ from binary_entropy.ui.workbench_state import (
     default_workbench_form,
     parse_workbench_dataset,
 )
-from binary_entropy.vmm_types import (
+from bspe.vmm_types import (
     AdditiveSmoothing,
     KTSmoothing,
     MLESmoothing,
